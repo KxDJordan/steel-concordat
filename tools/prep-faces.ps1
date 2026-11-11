@@ -30,7 +30,17 @@ public static class Faces {
           int x0 = cols[col], y0 = rows[row], x1 = cols[col+1], y1 = rows[row+1], w = x1-x0, h = y1-y0;
           // components: keep shapes >= 2% of the biggest one
           var lab = new int[w*h]; var sizes = new System.Collections.Generic.List<int>(); sizes.Add(0); var q = new System.Collections.Generic.Stack<int>();
-          Func<int,int,byte> A = (x,y) => p[(y0+y)*st+(x0+x)*4+3];
+          Func<int,int,byte> A0 = (x,y) => p[(y0+y)*st+(x0+x)*4+3];
+          // matting clean-up: real art is dense, background haze is sparse speckle. A pixel counts only if most of its
+          // 5x5 neighbourhood is opaque; saturated "fringe" colours (red/yellow/magenta/blue halos) survive only deep
+          // inside the art (so a magenta hair streak stays, a magenta halo goes)
+          var dens = new double[w*h];
+          { var sat2 = new int[(w+1)*(h+1)]; for (int y=0;y<h;y++) for (int x=0;x<w;x++) sat2[(y+1)*(w+1)+x+1] = (A0(x,y)>20?1:0) + sat2[y*(w+1)+x+1] + sat2[(y+1)*(w+1)+x] - sat2[y*(w+1)+x];
+            for (int y=0;y<h;y++) for (int x=0;x<w;x++) { int xa=Math.Max(0,x-2), ya=Math.Max(0,y-2), xb=Math.Min(w,x+3), yb=Math.Min(h,y+3); dens[y*w+x] = (double)(sat2[yb*(w+1)+xb]-sat2[ya*(w+1)+xb]-sat2[yb*(w+1)+xa]+sat2[ya*(w+1)+xa]) / ((xb-xa)*(yb-ya)); } }
+          var okm = new bool[w*h];
+          for (int y=0;y<h;y++) for (int x=0;x<w;x++) { if (A0(x,y) <= 20) continue; int i=(y0+y)*st+(x0+x)*4; double mx=Math.Max(p[i+2],Math.Max(p[i+1],p[i])), mn=Math.Min(p[i+2],Math.Min(p[i+1],p[i])), sa = mx>0?(mx-mn)/mx:0, dn = dens[y*w+x];
+            if (dn < 0.55) continue; if (sa > 0.82 && mx > 160 && dn < 0.9) continue; okm[y*w+x] = true; }
+          Func<int,int,byte> A = (x,y) => okm[y*w+x] ? A0(x,y) : (byte)0;
           for (int y=0;y<h;y++) for (int x=0;x<w;x++) { if (lab[y*w+x]!=0 || A(x,y)<=20) continue; int id = sizes.Count, n = 0; lab[y*w+x]=id; q.Push(y*w+x);
             while (q.Count>0) { int c=q.Pop(); n++; int cx=c%w, cy=c/w; for (int dy=-1;dy<=1;dy++) for (int dx=-1;dx<=1;dx++) { int nx=cx+dx, ny=cy+dy; if (nx<0||ny<0||nx>=w||ny>=h) continue; if (lab[ny*w+nx]!=0||A(nx,ny)<=20) continue; lab[ny*w+nx]=id; q.Push(ny*w+nx);} }
             sizes.Add(n); }
@@ -47,10 +57,10 @@ public static class Faces {
             int l = lab[y*w+x]; bool keep = l!=0 && sizes[l]*50>=big;
             // grow kept shapes by 1px for soft edges
             if (!keep) for (int dy=-1;dy<=1&&!keep;dy++) for (int dx=-1;dx<=1&&!keep;dx++) { int nx=x+dx, ny=y+dy; if (nx>=0&&ny>=0&&nx<w&&ny<h){ int l2=lab[ny*w+nx]; if (l2!=0&&sizes[l2]*50>=big) keep=true; } }
-            if (!keep) continue;
+            if (!keep || (!okm[y*w+x] && dens[y*w+x] < 0.7)) continue;
             int i = (y0+y)*st+(x0+x)*4; double B = p[i], G = p[i+1], R = p[i+2], a = p[i+3];
             // red matting fringe next to transparency
-            if (R > 140 && G < 90 && B < 90) { bool edge = false; for (int dy=-3;dy<=3&&!edge;dy++) for (int dx=-3;dx<=3&&!edge;dx++) { int nx=x+dx, ny=y+dy; if (nx<0||ny<0||nx>=w||ny>=h||A(nx,ny)<40) edge=true; } if (edge) continue; }
+            if (R > 140 && G < 90 && B < 90) { bool edge = false; for (int dy=-3;dy<=3&&!edge;dy++) for (int dx=-3;dx<=3&&!edge;dx++) { int nx=x+dx, ny=y+dy; if (nx<0||ny<0||nx>=w||ny>=h||A0(nx,ny)<40) edge=true; } if (edge) continue; }
             int o = ((oy+y)*side + ox+x)*4; cb[o]=(byte)B; cb[o+1]=(byte)G; cb[o+2]=(byte)R; cb[o+3]=(byte)a;
             if (y < band) continue;
             double mx = Math.Max(R,Math.Max(G,B)), mn = Math.Min(R,Math.Min(G,B)), sat = mx>0?(mx-mn)/mx:0, lum = 0.299*R+0.587*G+0.114*B;

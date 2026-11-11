@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Steel Concordat</title>
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Concordat">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B1220">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -111,6 +118,10 @@ h2{font-size:20px} h3{font-size:16px} h4{font-size:14px}
 .rt0{--rc:var(--rt0)} .rt1{--rc:var(--rt1)} .rt2{--rc:var(--rt2)} .rt3{--rc:var(--rt3)} .rt4{--rc:var(--rt4)} .rt5{--rc:var(--rt5)}
 .ovr.rt{color:var(--rc); background:color-mix(in srgb, var(--rc) 13%, transparent); border:1px solid color-mix(in srgb, var(--rc) 45%, transparent); border-radius:6px; padding:1px 5px; line-height:1.25}
 .ovr.rt.pot{background:transparent; border-style:dashed}
+.pstars{position:relative; display:inline-block; font-size:13px; line-height:1; letter-spacing:1px; white-space:nowrap; vertical-align:middle}
+.pstars .ps0{color:rgba(160,170,185,.28)}
+.pstars .ps1, .pstars .ps2{position:absolute; left:0; top:0; overflow:hidden; color:#F2C14E; text-shadow:0 0 6px rgba(242,193,78,.45)}
+.pstars .ps2{color:rgba(242,193,78,.35); text-shadow:none}
 .bar.rt > i{background:var(--rc)}
 .sv{font-weight:700; color:var(--rc); font-family:var(--fh)}
 .rtlegend{display:flex; gap:8px; flex-wrap:wrap; font-size:10.5px; color:var(--muted); margin-top:4px}
@@ -861,9 +872,9 @@ function gearScore(m) { if (!m) return 0; const ms = m.modules.filter(Boolean); 
 const HAIR = ['#1C1B22', '#3A2A20', '#5B3B26', '#C9CED8', '#E8C878', '#B8382F', '#2F5DAA', '#E68AB8', '#F2F2F2', '#2E9C99', '#6B4BA8', '#8A5A2B'];
 const SKIN = ['#F7DCC4', '#EFC9A8', '#E2B48D', '#C8946A', '#A8724C', '#7E5236', '#5E3B26'];
 const IRIS = ['#3C7DD9', '#2BA37A', '#B5532A', '#7A4BC2', '#C9A23A', '#D94164', '#4FC3D9', '#6B4A2E', '#8E9AA8'];
-// painted pilot faces (src/img/faces, built by tools/prep-faces.ps1): 32 pilots x 5 expressions per strip.
+// painted pilot faces (src/img/faces, built by tools/prep-faces.ps1): 56 pilots x 5 expressions per strip.
 // The suit is tinted in the guild's primary colour through a matching mask strip (grayscale armour shading).
-const FACE_ART = { on: true, n: 32, cell: 160, expr: { neutral: 0, happy: 1, shaken: 2, broken: 3, fierce: 4 } };
+const FACE_ART = { on: true, n: 56, cell: 160, expr: { neutral: 0, happy: 1, shaken: 2, broken: 3, fierce: 4 } };
 function faceIndex(p) { return p.face != null ? p.face % FACE_ART.n : hashStr(String(p.seed) + 'face') % FACE_ART.n; }
 function faceSVG(p, expr, gb, bgc) {
   const fi = faceIndex(p), col = FACE_ART.expr[expr] ?? 0, C = FACE_ART.cell, vb = `${col * C} 0 ${C} ${C}`;
@@ -3566,7 +3577,9 @@ function updateFX(B, fx, dt) {
   fx.timers = fx.timers.filter(t => !t.done);
   const P = fx.P;
   for (let i = P.length - 1; i >= 0; i--) {
-    const p = P[i]; p.life -= dt;
+    const p = P[i];
+    if (!p) continue; // the particle cap can trim the list while particles spawn more mid-loop
+    p.life -= dt;
     if (p.life <= 0) {
       if (p.k === 'drop') fx.splat(p.x, p.y, 4, p.c);
       if (p.k === 'casing') { /* settle */ }
@@ -4255,7 +4268,7 @@ function drawMech(ctx, u, time, opts = {}) {
   if (u.flash > 0) over('#FFFFFF', Math.min(0.32, u.flash * 4));
   if (u.overheat > 0) over('#FF5A1E', 0.25 + Math.sin(time * 20) * 0.1);
   ctx.restore();
-  if (wreck) return;
+  if (wreck || opts.noRing) return;
   ctx.strokeStyle = u.team === 0 ? hexA(u.color2, 0.55) : 'rgba(230,80,80,.45)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.ellipse(u.x, u.y, s * 1.12, s * 1.12, 0, 0, TAU); ctx.stroke();
 }
@@ -5442,12 +5455,20 @@ ACT.pickEm = d => { grabName(); UI.setup.banner.em = d.e; renderSetup(); };
 ACT.setupNext = () => { UI.setup.step++; renderSetup(); };
 ACT.setupBack = () => { grabName(); UI.setup.step--; renderSetup(); };
 ACT.setupDraft = () => { grabName(); newGame(UI.setup); UI.setup.step = 3; UI.setup.round = 0; UI.setup.opts = draftOptions(0); renderSetup(); };
+// potential as 0.5-5 stars (half-star steps): 45 = 1 star ... 85+ = 5 stars. lo/hi = scouted range (free agents)
+function potStarVal(v) { return clamp(Math.round(((v - 45) / 10 + 1) * 2) / 2, 0.5, 5); }
+function potStars(pot, hi) {
+  const a = potStarVal(pot), b = hi != null ? potStarVal(hi) : a, star = '★★★★★';
+  const t = a === b ? `Potential: ${a} star${a === 1 ? '' : 's'}` : `Potential: ${a}–${b} stars (scouting estimate)`;
+  return `<span class="pstars" title="${t}" aria-label="${t}"><span class="ps0">${star}</span>${b > a ? `<span class="ps2" style="width:${b * 20}%">${star}</span>` : ''}<span class="ps1" style="width:${a * 20}%">${star}</span></span>`;
+}
 function draftCard(o, i) {
   const p = o.p, m = o.m, ch = chassisOf(m);
   const top = STATS.slice().sort((a, b) => p.stats[b] - p.stats[a]).slice(0, 3);
   return `<button class="draftcard" data-act="draftPick" data-i="${i}">
     <div class="row">${portrait(p, 'md')}<div class="grow" style="min-width:0"><div class="nm" style="font-family:var(--fh); font-weight:600">${esc(p.first)} "${esc(p.call)}" ${esc(p.last)}</div><div class="row wrap" style="gap:4px; margin-top:3px">${clsChip(p.cls)}<span class="chip">${p.arch}</span><span class="chip">Age ${p.age}</span></div></div>${ovrBadge(p.ovr)}</div>
     <div class="row" style="gap:8px"><img src="${mechThumb(m, 30)}" width="44" height="44" alt=""><div class="small"><b>${ch.name}</b> · ${ch.wt} · ${FRAME_TYPES[frameOf(m).type].name} frame<div class="tiny muted">${m.modules.map(x => MODULES[x.k].name).join(', ')}</div></div></div>
+    <div class="small">Potential ${potStars(p.pot)}</div>
     ${top.map(k => `<div class="statrow"><span>${STAT_NAMES[k]}</span>${statCells(p.stats[k])}</div>`).join('')}
     ${p.perks.length ? `<div class="tiny good">Perk: ${PERKS.find(x => x.id === p.perks[0]).name}</div>` : ''}
   </button>`;
@@ -5598,7 +5619,7 @@ function renderRoster() {
   const ps = alivePilots().filter(p => filt === 'all' || p.squad === filt);
   let sel = pilotById(UI.sel.pilot); if (!sel || !sel.alive) sel = ps[0] || alivePilots()[0];
   return `<div class="page">${tabs}<div class="pane2"><div><div class="tabs">${[['all', 'All'], ['A', 'Squad A'], ['B', 'Squad B'], ['R', 'Reserve']].map(([k, n]) => `<button class="tab ${filt === k ? 'on' : ''}" data-act="sub" data-s="rfilt" data-v="${k}">${n}</button>`).join('')}</div>
-  <div class="list">${ps.map(p => `<button class="card ${sel === p ? 'on' : ''}" data-act="selPilot" data-id="${p.id}">${portrait(p)}<div class="meta"><div class="nm">${esc(p.call)} <span class="small muted">Sq ${p.squad === 'R' ? '—' : p.squad} · Lv ${p.level}</span></div><div class="row wrap" style="gap:4px">${clsChip(p.cls)}${statusChips(p)}</div></div>${ovrBadge(p.ovr)}</button>`).join('') || '<p class="muted small">No pilots here.</p>'}</div>
+  <div class="list">${ps.map(p => `<button class="card ${sel === p ? 'on' : ''}" data-act="selPilot" data-id="${p.id}">${portrait(p)}<div class="meta"><div class="nm">${esc(p.call)} <span class="small muted">Sq ${p.squad === 'R' ? '—' : p.squad} · Lv ${p.level}</span></div><div class="row wrap" style="gap:4px">${clsChip(p.cls)}${statusChips(p)}</div></div><div class="col" style="align-items:center; gap:3px">${ovrBadge(p.ovr)}${potStars(p.pot)}</div></button>`).join('') || '<p class="muted small">No pilots here.</p>'}</div>
   <p class="small muted">Capacity ${alivePilots().length}/${capacity()}</p></div>
   <div>${sel ? pilotDetail(sel) : ''}</div></div></div>`;
 }
@@ -5613,7 +5634,7 @@ function pilotDetail(p) {
   <div class="col grow" style="gap:4px"><h2>${esc(p.first)} "${esc(p.call)}" ${esc(p.last)}</h2>
   <div class="row wrap" style="gap:4px">${clsChip(p.cls)}<span class="chip">${p.arch}</span><span class="chip">Age ${p.age}</span><span class="chip">Level ${p.level}</span>${statusChips(p)}</div>
   <div class="small muted">${ARCHETYPES[p.arch].desc}</div>
-  <div class="row" style="gap:16px; margin-top:4px"><div><div class="tiny muted">Overall</div>${ovrBadge(p.ovr, '', 'display:inline-block')}</div><div><div class="tiny muted">Potential</div>${ovrBadge(p.pot, 'pot', 'display:inline-block')}</div><div><div class="tiny muted">Wage</div><b>${fmt(p.wage)}</b>/mo · ${p.contract} season${p.contract > 1 ? 's' : ''}</div></div></div></div>${mechWin}</div>
+  <div class="row" style="gap:16px; margin-top:4px"><div><div class="tiny muted">Overall</div>${ovrBadge(p.ovr, '', 'display:inline-block')}</div><div><div class="tiny muted">Potential</div>${ovrBadge(p.pot, 'pot', 'display:inline-block')}<div>${potStars(p.pot)}</div></div><div><div class="tiny muted">Wage</div><b>${fmt(p.wage)}</b>/mo · ${p.contract} season${p.contract > 1 ? 's' : ''}</div></div></div></div>${mechWin}</div>
   <div class="grid2" style="margin-top:12px"><div>
     ${STATS.map(k => `<div class="statrow"><span>${STAT_NAMES[k]}</span>${statCells(p.stats[k])}</div>`).join('')}
     <div class="statrow" style="margin-top:6px"><span>XP</span>${bar(p.xp / (p.level * 80))}<span class="tiny">${p.xp}</span></div>
@@ -5642,7 +5663,7 @@ ACT.doRelease = d => { releasePilot(pilotById(d.id)); closeModal(); UI.sel.pilot
 ACT.editRules = d => openSetup({ mode: 'rules', pilots: [pilotById(d.id)], back: () => { UI.full = null; hideFull(); render(); } });
 function renderFA() {
   return `<p class="small muted">New free agents arrive every Monday. Pool size grows with your Scout Network. Capacity ${alivePilots().length}/${capacity()}.</p><div class="grid3">${G.fa.map((p, i) => `<div class="panel col" style="gap:6px"><div class="row">${portrait(p, 'md')}<div class="grow" style="min-width:0"><div style="font-family:var(--fh); font-weight:600">${esc(p.first)} "${esc(p.call)}" ${esc(p.last)}</div><div class="row wrap" style="gap:4px">${clsChip(p.cls)}<span class="chip">${p.arch}</span><span class="chip">Age ${p.age}</span></div></div>${ovrBadge(p.ovr)}</div>
-  <div class="small">Potential ${p.potLo === p.potHi ? ovrTxt(p.potLo) : ovrTxt(p.potLo) + '–' + ovrTxt(p.potHi)} · Asks <b>${fmt(p.ask)}</b>/mo</div>
+  <div class="small">Potential ${potStars(p.potLo, p.potHi)} ${p.potLo === p.potHi ? ovrTxt(p.potLo) : ovrTxt(p.potLo) + '–' + ovrTxt(p.potHi)} · Asks <b>${fmt(p.ask)}</b>/mo</div>
   <div class="small">${p.ownMech ? `Brings a <b>${chassisOf(p.ownMech).name}</b> (${chassisOf(p.ownMech).wt})` : '<span class="warnc">No mech of their own</span>'}</div>
   ${STATS.slice().sort((a, b) => p.stats[b] - p.stats[a]).slice(0, 3).map(k => `<div class="statrow"><span>${STAT_NAMES[k]}</span>${statCells(p.stats[k])}</div>`).join('')}
   <button class="btn sm primary" data-act="signFA" data-i="${i}">Sign for ${fmt(p.fee)}</button></div>`).join('')}</div>`;
