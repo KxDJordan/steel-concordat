@@ -384,6 +384,38 @@ select,input[type=text]{border-radius:5px}
 .squadstrip .mcard.dead{opacity:.55; border-left-color:var(--danger)}
 @media (max-height:460px){ .sector{aspect-ratio:1000/330} }
 @media (prefers-reduced-motion: reduce){ .route-av, .sector .node.avail::after, .sector .squadpin, .sector .node.sel::before{animation:none} }
+
+/* market cards */
+.mgridwrap{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px}
+.mcard{display:flex; flex-direction:column; gap:7px; border-top:3px solid var(--mc)}
+.mcard::before{border-color:var(--mc)}
+.micon{display:inline-flex; align-items:center; justify-content:center; flex:none; border-radius:8px; color:var(--mc); background:color-mix(in srgb, var(--mc) 14%, var(--panel2)); border:1px solid color-mix(in srgb, var(--mc) 45%, transparent)}
+.mname{font-family:var(--fh); font-size:15px; letter-spacing:.02em}
+.mk{font-family:var(--fh); font-weight:700; font-size:11px; padding:1px 7px; border-radius:4px; color:#fff; background:var(--mk); letter-spacing:.04em}
+.slotchip{color:var(--mc); border-color:color-mix(in srgb, var(--mc) 50%, transparent); text-transform:uppercase; font-size:10px; letter-spacing:.07em; font-family:var(--fh)}
+.mdesc{line-height:1.35; min-height:2.7em}
+.mstat{display:grid; grid-template-columns:78px 1fr 34px; gap:8px; align-items:center; font-size:12px}
+.mstat span{color:var(--muted)} .mstat b{font-family:var(--fh); text-align:right}
+.mgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:4px}
+.mgrid > div{background:var(--panel2); border:1px solid var(--line); border-radius:5px; padding:4px 7px; display:flex; flex-direction:column; min-width:0}
+.mgrid span{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+.mgrid b{font-family:var(--fh); font-size:13px; display:flex; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cdchip{display:inline-flex; align-items:center; gap:4px}
+.mtags{display:flex; flex-wrap:wrap; gap:4px}
+.mtags span{font-size:10.5px; padding:1px 7px; border-radius:10px; background:color-mix(in srgb, var(--mc) 12%, transparent); color:var(--text); border:1px solid color-mix(in srgb, var(--mc) 35%, transparent)}
+.mfoot{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:auto; padding-top:6px; border-top:1px dashed var(--line)}
+.mfoot .price{font-family:var(--fh); font-weight:700; font-size:15px}
+.slotpip{display:inline-flex; width:20px; height:20px; align-items:center; justify-content:center; border-radius:4px; font:700 10px var(--fh); color:var(--mc); border:1px solid var(--mc); background:color-mix(in srgb, var(--mc) 12%, transparent)}
+/* facilities */
+.facwrap{display:grid; grid-template-columns:minmax(0,1.75fr) minmax(260px,1fr); gap:12px; align-items:start}
+.basesvg{width:100%; height:auto; display:block; border-radius:6px}
+.basesvg .facb{cursor:pointer; transition:filter .15s}
+.basesvg .facb:hover, .basesvg .facb:focus{filter:brightness(1.15); outline:none}
+.basesvg .facb.sel{filter:drop-shadow(0 0 6px rgba(240,166,58,.55))}
+.lvpips{display:inline-flex; gap:3px; vertical-align:middle} .lvpips i{width:12px; height:5px; border-radius:2px; background:var(--panel3)} .lvpips i.on{background:var(--amber)}
+.facnow{display:grid; gap:6px} .facnow > div{background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:6px 9px; display:flex; flex-direction:column} .facnow span{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em} .facnow b{font-size:13px}
+.faclist{display:flex; flex-direction:column; gap:5px} .faclist .card{padding:7px 10px}
+@media (max-width: 1000px){ .facwrap{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -4350,6 +4382,276 @@ function renderFA() {
 ACT.signFA = d => { const err = signFreeAgent(G.fa[+d.i]); if (err) toast(err); else toast('Signed. Assign them to a squad in Roster.'); render(); };
 
 /* ---------- HANGAR ---------- */
+/* ---------- MARKET / STORAGE: module icons + stat cards ---------- */
+// 24x24 line icons, one per module (stroke = currentColor)
+const MOD_ICON = {
+  autocannon: '<rect x="3" y="9" width="9" height="7" rx="1.5"/><path d="M12 11h8M12 14h8M20 10v5"/><path d="M5 16v3h4v-3"/>',
+  gatling: '<rect x="3" y="8" width="7" height="9" rx="1.5"/><path d="M10 9.5h11M10 12.5h11M10 15.5h11"/><circle cx="6.5" cy="12.5" r="1.6"/>',
+  pulse: '<rect x="3" y="9" width="14" height="6" rx="3"/><path d="M17 12h4"/><circle cx="7" cy="12" r=".9"/><circle cx="10" cy="12" r=".9"/><circle cx="13" cy="12" r=".9"/>',
+  scatter: '<rect x="3" y="8" width="8" height="9" rx="1.5"/><path d="M11 10h6M11 15h6"/><path d="M19 8l2-2M19.5 12.5h2.5M19 17l2 2"/>',
+  gauss: '<rect x="2" y="9" width="5" height="7" rx="1"/><path d="M7 12.5h15"/><path d="M9 9.5v6M12 9.5v6M15 9.5v6M18 9.5v6"/>',
+  railgun: '<rect x="2" y="9" width="6" height="7" rx="1"/><path d="M8 10.5h14M8 14.5h14"/><path d="M14 12.5h4" stroke-dasharray="1.5 1.5"/>',
+  beam: '<rect x="3" y="9" width="10" height="7" rx="3.5"/><path d="M13 12.5h9" stroke-width="3" opacity=".45"/><path d="M13 12.5h9"/>',
+  ion: '<path d="M3 12.5h6"/><circle cx="14" cy="12.5" r="5"/><circle cx="14" cy="12.5" r="1.8"/><path d="M14 4.5v2M14 18.5v2M21 12.5h1.5"/>',
+  plasma: '<rect x="3" y="8" width="8" height="9" rx="2"/><path d="M11 9l5 1.5v4L11 16"/><circle cx="19.5" cy="12.5" r="2.5"/>',
+  arc: '<rect x="3" y="9" width="7" height="7" rx="1.5"/><path d="M10 10l6-2M10 15l6 2"/><path d="M17 8l-2 4.5 3 0-2 4.5"/>',
+  flamer: '<rect x="3" y="9" width="7" height="7" rx="2"/><path d="M10 12.5h4"/><path d="M15 12.5c2-3 4-1 3-4 3 2 4 5 1 8-1 1-3 1-4-1"/>',
+  missiles: '<rect x="3" y="6" width="12" height="13" rx="1.5"/><circle cx="7" cy="10" r="1.6"/><circle cx="11" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="11" cy="15" r="1.6"/><path d="M15 12.5h6l-2-2M21 12.5l-2 2"/>',
+  rockets: '<path d="M4 9.5h11l3 1.5-3 1.5H4zM4 13.5h11l3 1.5-3 1.5H4z"/><path d="M4 8v10"/>',
+  seekers: '<path d="M4 18c4-1 6-6 9-9"/><path d="M13 9l1-3 2 3z"/><path d="M8 20c3 0 6-3 8-6"/><path d="M16 14l2-2 1 3z"/><circle cx="20" cy="6" r="2"/>',
+  mortar: '<path d="M5 19h14"/><path d="M8 19l3-9h5l-2 9"/><circle cx="17" cy="5.5" r="2"/><path d="M14 9.5l2-2"/>',
+  chainblade: '<path d="M4 18l12-12 3 1-1 3L6 20z"/><path d="M8 14l1 1M11 11l1 1M14 8l1 1"/><path d="M3 21l2-2"/>',
+  hammer: '<path d="M5 20l9-9"/><rect x="12" y="3" width="9" height="7" rx="1" transform="rotate(45 16.5 6.5)"/>',
+  katana: '<path d="M4 20c6-4 11-10 16-17"/><path d="M6 15.5l3 3"/><path d="M3.5 21l3-3"/>',
+  lance: '<rect x="3" y="9" width="8" height="7" rx="1.5"/><path d="M11 10.5h5M11 14.5h5"/><path d="M16 9l6 3.5-6 3.5z"/>',
+  repair: '<path d="M14.5 4a4 4 0 0 0-4.6 5.3L3.5 15.7a1.8 1.8 0 0 0 2.6 2.6l6.4-6.4A4 4 0 0 0 17.8 7.4l-2.4 2.4-2.2-.6-.6-2.2z"/><path d="M18 15v6M15 18h6"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/><path d="M12 7v10" opacity=".5"/>',
+  emp: '<circle cx="12" cy="12" r="2.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
+  uplink: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+  cloak: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/><path d="M4 20L20 4"/>',
+  plating: '<path d="M4 6l8-3 8 3v5c0 5-3.5 8-8 10-4.5-2-8-5-8-10z"/><path d="M4 10h16M7 15h10"/>',
+  jets: '<rect x="8" y="3" width="8" height="9" rx="2"/><path d="M9 12l-1 3M15 12l1 3"/><path d="M8 16c0 2 1 4 2 5 0-2 0-3-1-5M16 16c0 2-1 4-2 5 0-2 0-3 1-5"/>',
+  coolant: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/><path d="M10 4.5l2 2 2-2M10 19.5l2-2 2 2"/>',
+  cockpit: '<path d="M5 13a7 7 0 0 1 14 0v4H5z"/><path d="M8 13a4 4 0 0 1 8 0"/><path d="M5 17h14v3H5z"/>',
+  pointdef: '<path d="M5 20h14"/><path d="M7 20v-4a5 5 0 0 1 10 0v4"/><path d="M13 13l6-6M15 13l5-4"/><circle cx="20" cy="5" r="1.2"/>',
+  vector: '<rect x="9" y="7" width="6" height="10" rx="2"/><path d="M9 12H3l2-2M3 12l2 2M15 12h6l-2-2M21 12l-2 2"/>',
+};
+const SLOT_META = { W: { name: 'Weapon', c: '#E0525A' }, S: { name: 'System', c: '#2BB5C8' }, U: { name: 'Utility', c: '#4CB87A' } };
+const MK_COL = ['', '#8E99A8', '#4CB87A', '#3B8FE0', '#9B5BE0', '#E2A52B'];
+function modIcon(k, size = 34) {
+  const T = MODULES[k], c = SLOT_META[T.slot].c;
+  return `<span class="micon" style="--mc:${c}; width:${size}px; height:${size}px"><svg viewBox="0 0 24 24" width="${Math.round(size * 0.66)}" height="${Math.round(size * 0.66)}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${MOD_ICON[k] || '<circle cx="12" cy="12" r="6"/>'}</svg></span>`;
+}
+// derived combat numbers at a given Mk tier (same formulas the battle sim uses)
+function modStats(k, t = 1) {
+  const T = MODULES[k], tm = 1 + 0.15 * (t - 1), S = { tags: [] };
+  if (T.slot === 'W') {
+    let dmg = 0, cycle = 1, shot = 0;
+    if (T.kind === 'gun') { shot = T.dmg * tm * (T.pellets || 1); dmg = shot * T.burst; cycle = T.burst * T.rof + T.reload; }
+    else if (T.kind === 'missile') { shot = T.dmg * tm; dmg = shot * T.salvo; cycle = T.salvo * 0.13 + T.reload; }
+    else if (T.kind === 'rail') { shot = dmg = T.dmg * tm; cycle = T.charge + T.reload; }
+    else if (T.kind === 'beam') { shot = dmg = T.dmg * tm; cycle = T.charge + T.dur + T.reload; }
+    else if (T.kind === 'melee') { shot = dmg = T.dmg * tm; cycle = T.reload; }
+    else if (T.kind === 'flame') { shot = T.dmg * tm; dmg = shot * T.dur; cycle = T.dur + T.reload; }
+    else if (T.kind === 'mortar') { shot = T.dmg * tm; dmg = shot * T.salvo; cycle = T.reload; }
+    else if (T.kind === 'arc') { shot = T.dmg * tm; dmg = shot; cycle = T.reload; }
+    S.dps = dmg / cycle; S.hit = shot; S.range = T.range; S.cd = T.reload; S.heat = T.heat;
+    S.hitLabel = T.kind === 'gun' && (T.burst > 1 || T.pellets) ? `${Math.round(shot)}${T.pellets ? ` (${T.pellets} pellets)` : ''} × ${T.burst}` : T.kind === 'missile' || T.kind === 'mortar' ? `${Math.round(shot)} × ${T.salvo}` : T.kind === 'flame' ? `${Math.round(shot)}/s` : `${Math.round(shot)}`;
+    if (T.ap) S.tags.push(`Ignores ${Math.round(T.ap * 100)}% armor`);
+    if (T.aoe) S.tags.push(`Splash ${T.aoe}`);
+    if (T.homing != null) S.tags.push(`Homing: ${T.homing < 1.5 ? 'slight' : T.homing < 4 ? 'medium' : 'strong'}`);
+    if (T.pd) S.tags.push(T.pd >= 1.2 ? 'Easy to shoot down' : T.pd <= 0.7 ? 'Hard to shoot down' : 'Can be shot down');
+    if (T.orb === 'ion') S.tags.push('EMP stun');
+    if (T.orb === 'plasma' || T.kind === 'flame') S.tags.push('Sets on fire');
+    if (T.kind === 'arc') S.tags.push(`Chains to ${T.chain + 1}`);
+    if (T.kind === 'rail') S.tags.push('Pierces');
+    if (T.kind === 'rail' || T.kind === 'beam') S.tags.push(`Charge ${T.charge}s`);
+    if (T.minR) S.tags.push(`Min range ${T.minR}`);
+    if (T.kind === 'melee') S.tags.push(`Knockback: ${T.knock >= 400 ? 'heaviest' : T.knock >= 300 ? 'heavy' : T.knock >= 120 ? 'light' : 'slight'}`);
+    if (T.stagger) S.tags.push('Staggers');
+    if (T.mv === 'hammer') S.tags.push('Splash + stun');
+    if (T.btype === 'energy') S.tags.push('Energy');
+  } else {
+    S.cd = T.reload || 0;
+    const v = {
+      repair: [`Heals ${Math.round(T.dmg * tm)} HP/s`, `Range ${T.range}`], shield: [`Barrier ${Math.round(T.dmg * tm)}`, `Range ${T.range}`, 'Lasts 7s'],
+      emp: [`Stun 1.4s`, `${Math.round(T.dmg * tm)} damage`, `Radius ${T.range}`], uplink: ['Target takes +20% damage', 'Mark lasts 6s', `Range ${T.range}`],
+      cloak: ['Invisible 3.5s', 'Breaks enemy lock'], plating: [`+${Math.round(T.armor * tm)} armor`], jets: ['Burst repositioning', 'Melee gap-closer'],
+      coolant: [`+${Math.round((0.6 + 0.1 * (t - 1)) * 100)}% heat dissipation`], cockpit: ['−60% pilot death chance on ejection'],
+      pointdef: [`Range ${Math.round(T.range * (1 + 0.08 * (t - 1)))}`, `Fires every ${T.rof}s`, 'Covers nearby allies'], vector: ['Dash-dodge for any frame', `Booster cooldown −25%`],
+    }[T.kind] || [];
+    S.tags = v;
+  }
+  return S;
+}
+const WEAPON_MAX = (() => { let dps = 0, rng = 0; for (const k in MODULES) if (MODULES[k].slot === 'W') { const s = modStats(k, 5); dps = Math.max(dps, s.dps); rng = Math.max(rng, s.range); } return { dps, rng }; })();
+function cdChip(sec) { if (!sec) return ''; const f = clamp(sec / 12, 0.05, 1); return `<span class="cdchip" title="Cooldown"><svg viewBox="0 0 20 20" width="16" height="16"><circle cx="10" cy="10" r="8" fill="none" stroke="var(--line)" stroke-width="3"/><circle cx="10" cy="10" r="8" fill="none" stroke="var(--amber)" stroke-width="3" stroke-dasharray="${(f * 50.3).toFixed(1)} 60" transform="rotate(-90 10 10)"/></svg>${sec}s</span>`; }
+function modCard(k, t, footer, extraTop = '') {
+  const T = MODULES[k], S = modStats(k, t), sm = SLOT_META[T.slot];
+  let stats = '';
+  if (T.slot === 'W') {
+    stats = `<div class="mstat"><span>Damage/sec</span><div class="bar rt rt${rtier(Math.round(S.dps / WEAPON_MAX.dps * 100))}"><i style="width:${clamp(S.dps / WEAPON_MAX.dps, 0.04, 1) * 100}%"></i></div><b>${S.dps.toFixed(0)}</b></div>
+      <div class="mstat"><span>Range</span><div class="bar"><i style="width:${clamp(S.range / WEAPON_MAX.rng, 0.04, 1) * 100}%; background:var(--cyan)"></i></div><b>${S.range}</b></div>
+      <div class="mgrid"><div><span>Per hit</span><b>${S.hitLabel}</b></div><div><span>Cooldown</span><b>${cdChip(S.cd)}</b></div><div><span>Heat</span><b>${S.heat}</b></div><div><span>Power</span><b>${T.power}</b></div></div>`;
+  } else {
+    stats = `<div class="mgrid"><div><span>Cooldown</span><b>${S.cd ? cdChip(S.cd) : '<span class="muted">Passive</span>'}</b></div><div><span>Power</span><b>${T.power}</b></div></div>`;
+  }
+  return `<div class="panel mcard" style="--mc:${sm.c}">${extraTop}<div class="row" style="gap:10px; align-items:flex-start">${modIcon(k)}<div class="grow" style="min-width:0"><div class="row" style="justify-content:space-between; gap:6px"><b class="mname">${T.name}</b><span class="mk" style="--mk:${MK_COL[t]}">${MK[t]}</span></div><div class="row" style="gap:5px; margin-top:2px"><span class="chip slotchip">${sm.name}</span>${T.kind === 'melee' ? '<span class="chip">Melee</span>' : ''}</div></div></div>
+    <div class="small muted mdesc">${T.desc}</div>${stats}
+    ${S.tags.length ? `<div class="mtags">${S.tags.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
+    <div class="mfoot">${footer}</div></div>`;
+}
+function chassisCard(it, i) {
+  const ch = CHASSIS.find(c => c.id === it.ch), W = WEIGHTS[ch.wt];
+  const fake = { ch: ch.id, modules: DEFAULT_LOADOUT[ch.cls][ch.wt].map(k => ({ k, t: 1 })), frame: it.frame };
+  const mb = mobilityOf(ch, it.frame);
+  return `<div class="panel mcard chassis" style="--mc:var(--amber)"><div class="row" style="gap:10px"><img src="${mechThumb(fake, 32)}" width="64" height="64" alt="" style="background:var(--panel2); border-radius:8px"><div class="grow" style="min-width:0"><div class="row" style="justify-content:space-between"><b class="mname">${ch.name}</b><span class="chip">${ch.wt}</span></div><div class="row" style="gap:5px; margin-top:2px">${clsChip(ch.cls)}${it.frame ? `<span class="chip">${FRAME_TYPES[it.frame.type].name} frame</span>` : ''}</div></div></div>
+    <div class="mgrid"><div><span>Armor</span><b>${W.armor}</b></div><div><span>HP</span><b>${W.hp}</b></div><div><span>Speed</span><b>${mb.speed}</b></div><div><span>Mobility</span><b>${ovrTxt(mb.score)}</b></div><div><span>Reactor</span><b>${W.reactor}</b></div><div><span>Dash CD</span><b>${cdChip(BOOST[ch.wt].cd)}</b></div></div>
+    <div class="row" style="gap:4px; margin-top:6px">${W.slots.map(s => `<span class="slotpip" style="--mc:${SLOT_META[s].c}" title="${SLOT_META[s].name} slot">${s}</span>`).join('')}<span class="tiny muted" style="margin-left:4px">module slots</span></div>
+    <div class="small" style="margin-top:6px"><b>${SIGS[ch.sig].name}</b> <span class="muted">${SIGS[ch.sig].desc}</span></div>
+    <div class="mfoot"><span class="price">${fmt(it.price)} cr</span><button class="btn sm primary" data-act="buy" data-i="${i}" ${G.credits < it.price ? 'disabled' : ''}>Buy chassis</button></div></div>`;
+}
+function renderMarket() {
+  const f = UI.sub.mfilt || 'all';
+  const filt = [['all', 'All'], ['W', 'Weapons'], ['S', 'Systems'], ['U', 'Utility'], ['mech', 'Chassis']];
+  const items = G.market.map((it, i) => ({ it, i })).filter(({ it }) => f === 'all' || (f === 'mech' ? it.type === 'mech' : it.type === 'mod' && MODULES[it.k].slot === f));
+  const nextMon = 7 - ((G.day - 1) % 7);
+  return `<div class="row wrap" style="justify-content:space-between; gap:8px; margin-bottom:10px"><div class="tabs" style="margin:0">${filt.map(([k, n]) => `<button class="tab ${f === k ? 'on' : ''}" data-act="sub" data-s="mfilt" data-v="${k}">${n}</button>`).join('')}</div>
+    <div class="small muted">Credits <b style="color:var(--text)">${fmt(G.credits)}</b> · Restock in ${nextMon} day${nextMon === 1 ? '' : 's'} · Workshop caps modules at ${MK[Math.min(5, G.facilities.workshop)]}</div></div>
+    <div class="mgridwrap">${items.map(({ it, i }) => it.type === 'mod' ? modCard(it.k, it.t, `<span class="price">${fmt(it.price)} cr</span><button class="btn sm primary" data-act="buy" data-i="${i}" ${G.credits < it.price ? 'disabled' : ''}>Buy</button>`) : chassisCard(it, i)).join('') || '<p class="muted small">Nothing in this category this week.</p>'}</div>`;
+}
+function renderStorage() {
+  if (!G.inventory.length) return '<div class="panel"><p class="muted small" style="margin:0">Storage is empty. Modules you remove from mechs or buy in the Market land here.</p></div>';
+  return `<p class="small muted" style="margin:0 0 10px">Spare modules. Upgrade a module's tier with salvage (your Workshop level must be above its current tier), or sell it for half price. Salvage <b style="color:var(--text)">${G.salvage}</b>.</p>
+    <div class="mgridwrap">${G.inventory.map((it, i) => { const T = MODULES[it.k], upC = it.t * 10, upCr = it.t * 400, sell = Math.round(T.price * (1 + 0.6 * (it.t - 1)) * 0.5); return modCard(it.k, it.t, `<button class="btn sm" data-act="upMod" data-i="${i}" ${it.t >= G.facilities.workshop || G.salvage < upC || it.t >= 5 ? 'disabled' : ''} title="${upC} salvage + ${fmt(upCr)} cr">Upgrade to ${MK[Math.min(5, it.t + 1)]}</button><button class="btn sm ghost" data-act="sellMod" data-i="${i}">Sell ${fmt(sell)}</button>`); }).join('')}</div>`;
+}
+
+/* ---------- FACILITIES: isometric guild base, every upgrade changes the drawing ---------- */
+const ISO_K = 15;
+function isoP(x, y, z = 0) { return [330 + (x - y) * ISO_K, 128 + (x + y) * ISO_K * 0.5 - z * ISO_K * 0.82]; }
+function isoPts(pts) { return pts.map(p => isoP(...p).map(v => v.toFixed(1)).join(',')).join(' '); }
+function isoPoly(pts, fill, extra = '') { return `<polygon points="${isoPts(pts)}" fill="${fill}" ${extra}/>`; }
+function isoBox(x, y, z, w, d, h, col, o = {}) {
+  const top = o.top || shadeHex(col, 22), L = shadeHex(col, -22), R = shadeHex(col, -42), st = 'stroke="rgba(0,0,0,.35)" stroke-width=".8" stroke-linejoin="round"';
+  return isoPoly([[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]], L, st) +
+    isoPoly([[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]], R, st) +
+    isoPoly([[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]], top, st);
+}
+// a quad on the front-left (y+d) face or front-right (x+w) face
+function isoWin(face, x, y, w, d, u0, u1, z0, z1, fill, extra = '') {
+  return face === 'L' ? isoPoly([[x + u0, y + d, z0], [x + u1, y + d, z0], [x + u1, y + d, z1], [x + u0, y + d, z1]], fill, extra)
+    : isoPoly([[x + w, y + u0, z0], [x + w, y + u1, z0], [x + w, y + u1, z1], [x + w, y + u0, z1]], fill, extra);
+}
+function isoEll(x, y, z, r, fill, extra = '') { const [cx, cy] = isoP(x, y, z); return `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${(r * ISO_K * 1.41).toFixed(1)}" ry="${(r * ISO_K * 0.705).toFixed(1)}" fill="${fill}" ${extra}/>`; }
+function isoLine(a, b, col, w = 1.5, extra = '') { const p = isoP(...a), q = isoP(...b); return `<line x1="${p[0].toFixed(1)}" y1="${p[1].toFixed(1)}" x2="${q[0].toFixed(1)}" y2="${q[1].toFixed(1)}" stroke="${col}" stroke-width="${w}" stroke-linecap="round" ${extra}/>`; }
+function isoRoofGable(x, y, z, w, d, h, col) { // ridge along x
+  const R = shadeHex(col, -30);
+  return isoPoly([[x, y + d / 2, z + h], [x + w, y + d / 2, z + h], [x + w, y + d, z], [x, y + d, z]], col, 'stroke="rgba(0,0,0,.35)" stroke-width=".8"') +
+    isoPoly([[x + w, y, z], [x + w, y + d, z], [x + w, y + d / 2, z + h]], R, 'stroke="rgba(0,0,0,.35)" stroke-width=".8"');
+}
+const FAC_LOTS = { medbay: [2, 2, 5, 5], simpods: [16, 2, 6, 5], command: [10, 5, 4, 4], hangar: [2, 10, 8, 6], mess: [10.5, 12, 3.5, 4], workshop: [15, 11, 6, 5] };
+function facDraw(k, l, gb) {
+  const c1 = gb.c1, c2 = gb.c2, c3 = gb.c3, steel = '#6B7480', conc = '#8C939C', glass = '#9FD8FF';
+  let s = '';
+  if (k === 'command') {
+    const [x, y] = FAC_LOTS.command, th = 1.6 + l * 0.9;
+    s += isoBox(x, y, 0, 4, 4, 1, steel);
+    s += isoBox(x + 1, y + 1, 1, 2, 2, th, c1);
+    for (let z = 1.5; z < 1 + th - 0.3; z += 0.9) { s += isoWin('L', x + 1, y + 1, 2, 2, 0.2, 1.8, z, z + 0.35, glass, 'opacity=".8"'); s += isoWin('R', x + 1, y + 1, 2, 2, 0.2, 1.8, z, z + 0.35, shadeHex(glass, -25), 'opacity=".8"'); }
+    const top = 1 + th;
+    s += isoLine([x + 2, y + 2, top], [x + 2, y + 2, top + 1.4 + l * 0.25], '#C9D1DA', 1.6);
+    const [ax, ay] = isoP(x + 2, y + 2, top + 1.4 + l * 0.25); s += `<circle cx="${ax}" cy="${ay}" r="2.6" fill="${c2}"><animate attributeName="opacity" values="1;.2;1" dur="1.6s" repeatCount="indefinite"/></circle>`;
+    if (l >= 2) { const [dx, dy] = isoP(x + 1.3, y + 1.3, top + 0.35); s += `<g transform="translate(${dx} ${dy}) rotate(-25)"><ellipse rx="9" ry="4.5" fill="#D9DEE5" stroke="#5A626E"/><line x1="0" y1="0" x2="5" y2="-6" stroke="#5A626E" stroke-width="1.4"/></g>`; }
+    if (l >= 3) s += isoBox(x + 3.1, y + 0.2, 1, 0.8, 0.8, 1.2, c3);
+    if (l >= 4) { s += isoBox(x + 0.2, y + 3.1, 1, 0.9, 0.9, 1.8, shadeHex(c1, -15)); s += isoLine([x + 0.65, y + 3.55, 2.8], [x + 0.65, y + 3.55, 4.2], '#C9D1DA', 1.2); }
+    if (l >= 5) { const [hx, hy] = isoP(x + 2, y + 2, top + 0.6); s += `<ellipse cx="${hx}" cy="${hy}" rx="34" ry="12" fill="none" stroke="${glass}" stroke-width="1.6" opacity=".75"><animate attributeName="opacity" values=".8;.3;.8" dur="2.4s" repeatCount="indefinite"/></ellipse>`; }
+    const [fx, fy] = isoP(x + 0.3, y + 0.3, 1); s += `<line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy - 26}" stroke="#C9D1DA" stroke-width="1.2"/><path d="M${fx} ${fy - 26} l14 4 l-14 4z" fill="${c1}" stroke="${c2}" stroke-width=".8"/>`;
+  } else if (k === 'hangar') {
+    const [x, y, , d] = FAC_LOTS.hangar, w = Math.min(8, 3.6 + l * 0.9);
+    s += isoPoly([[x - 0.5, y + d, 0], [x + 8.3, y + d, 0], [x + 8.3, y + d + 0.9, 0], [x - 0.5, y + d + 0.9, 0]], '#5E656E');
+    s += isoBox(x, y, 0, w, d - 1, 2.2, steel, { top: shadeHex(c1, 5) });
+    s += isoRoofGable(x, y, 2.2, w, d - 1, 0.9, shadeHex(c1, 10));
+    const doors = Math.min(5, l + 1), dw = w / doors;
+    for (let i = 0; i < doors; i++) { s += isoWin('L', x, y, w, d - 1, i * dw + 0.18, (i + 1) * dw - 0.18, 0, 1.7, '#2A2F37', 'stroke="rgba(0,0,0,.4)" stroke-width=".6"'); s += isoWin('L', x, y, w, d - 1, i * dw + 0.18, (i + 1) * dw - 0.18, 1.55, 1.7, c2); }
+    for (let i = 0; i < Math.max(0, l - 2); i++) { const mx = x + 1 + i * 2.3, my = y + d - 0.15; s += isoBox(mx - 0.35, my - 0.35, 0, 0.7, 0.7, 0.9, c1); s += isoBox(mx - 0.25, my - 0.25, 0.9, 0.5, 0.5, 0.35, c2); }
+    if (l >= 5) { s += isoLine([x + w + 0.2, y, 0], [x + w + 0.2, y, 3.6], '#C9D1DA', 2) + isoLine([x + w + 0.2, y + d - 1, 0], [x + w + 0.2, y + d - 1, 3.6], '#C9D1DA', 2) + isoLine([x + w + 0.2, y, 3.6], [x + w + 0.2, y + d - 1, 3.6], c2, 2.4); }
+  } else if (k === 'workshop') {
+    const [x, y] = FAC_LOTS.workshop, w = Math.min(6, 2.8 + l * 0.65), d = 3.2;
+    s += isoBox(x, y, 0, w, d, 1.7, '#7A7368');
+    const teeth = 1 + Math.floor(l / 2);
+    for (let i = 0; i < teeth; i++) { const tx = x + i * (w / teeth); s += isoPoly([[tx, y, 1.7], [tx + w / teeth, y, 1.7], [tx + w / teeth, y + d, 1.7], [tx, y + d, 1.7]], shadeHex(c1, -10), 'stroke="rgba(0,0,0,.3)" stroke-width=".6"') + isoPoly([[tx, y, 1.7], [tx, y + d, 1.7], [tx, y + d, 2.6], [tx, y, 2.6]], glass, 'opacity=".7" stroke="rgba(0,0,0,.3)" stroke-width=".6"'); }
+    s += isoWin('L', x, y, w, d, 0.3, 1.6, 0, 1.3, '#2A2F37');
+    if (l >= 2) { const cx = x + w + 0.4, cy = y + 0.4, H = 3.6 + l * 0.35; s += isoLine([cx, cy, 0], [cx, cy, H], '#E2A52B', 2.2) + isoLine([cx, cy, H], [cx - 2.6 - l * 0.3, cy, H], '#E2A52B', 2) + isoLine([cx - 2 - l * 0.25, cy, H], [cx - 2 - l * 0.25, cy, H - 1.6], '#C9D1DA', 0.9); }
+    if (l >= 3) { const cols = ['#B5533A', '#3E6E8C', '#C9A23A', '#5C7A46']; for (let i = 0; i < l - 1; i++) s += isoBox(x + 0.2 + (i % 2) * 1.6, y + d + 0.3, Math.floor(i / 2) * 0.7, 1.5, 0.9, 0.7, cols[i % 4]); }
+    if (l >= 4) { const [px, py] = isoP(x + 0.9, y + d, 0.7); s += `<circle cx="${px}" cy="${py}" r="5" fill="#FFD27A" opacity=".85"><animate attributeName="r" values="3;6;3" dur=".7s" repeatCount="indefinite"/></circle>`; }
+    if (l >= 5) s += isoLine([x - 0.3, y + d + 1.4, 0], [x - 0.3, y + d + 1.4, 2.8], '#C9D1DA', 2) + isoLine([x + w, y + d + 1.4, 0], [x + w, y + d + 1.4, 2.8], '#C9D1DA', 2) + isoLine([x - 0.3, y + d + 1.4, 2.8], [x + w, y + d + 1.4, 2.8], '#E2A52B', 2.6);
+  } else if (k === 'medbay') {
+    const [x, y] = FAC_LOTS.medbay, floors = 1 + Math.floor((l - 1) / 2);
+    for (let f = 0; f < floors; f++) { s += isoBox(x + f * 0.25, y + f * 0.25, f * 1.1, 4 - f * 0.5, 4 - f * 0.5, 1.1, '#D9DEE5'); s += isoWin('L', x + f * 0.25, y + f * 0.25, 4 - f * 0.5, 4 - f * 0.5, 0.3, 3.4 - f * 0.5, f * 1.1 + 0.35, f * 1.1 + 0.7, glass, 'opacity=".8"'); }
+    const tz = floors * 1.1, tx = x + floors * 0.25 - 0.25 + (4 - (floors - 1) * 0.5) / 2, ty = y + floors * 0.25 - 0.25 + (4 - (floors - 1) * 0.5) / 2;
+    s += isoPoly([[tx - 0.25, ty - 0.9, tz], [tx + 0.25, ty - 0.9, tz], [tx + 0.25, ty + 0.9, tz], [tx - 0.25, ty + 0.9, tz]], '#E0525A') + isoPoly([[tx - 0.9, ty - 0.25, tz], [tx + 0.9, ty - 0.25, tz], [tx + 0.9, ty + 0.25, tz], [tx - 0.9, ty + 0.25, tz]], '#E0525A');
+    s += isoWin('R', x, y, 4, 4, 1.6, 2.4, 0, 0.8, '#2A2F37');
+    if (l >= 3) { s += isoEll(x + 5.6, y + 2, 0.02, 1.15, '#3A4049', 'stroke="#E2A52B" stroke-width="1.5"'); const [hx, hy] = isoP(x + 5.6, y + 2, 0); s += `<text x="${hx}" y="${hy + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#F2F2F2" font-family="sans-serif">H</text>`; }
+    if (l >= 4) s += isoBox(x - 0.1, y + 4.3, 0, 2.2, 1.2, 0.9, '#C7CDD5');
+    if (l >= 5) { const [dx, dy] = isoP(x + 5.6, y + 2, 2.6); s += `<g><ellipse cx="${dx}" cy="${dy}" rx="8" ry="3" fill="#F2F2F2" stroke="#5A626E"/><line x1="${dx - 11}" y1="${dy - 4}" x2="${dx + 11}" y2="${dy - 4}" stroke="#C9D1DA"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="2s" repeatCount="indefinite"/></g>`; }
+  } else if (k === 'simpods') {
+    const [x, y] = FAC_LOTS.simpods, spots = [[1.4, 1.3], [4.2, 1.3], [1.4, 3.8], [4.2, 3.8], [2.8, 2.55]];
+    for (let i = 0; i < l; i++) {
+      const [ox, oy] = spots[i], [cx, cy] = isoP(x + ox, y + oy, 0), rx = 1.05 * ISO_K * 1.41, ry = rx * 0.5, h = 22;
+      s += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#4A5260"/><path d="M${cx - rx} ${cy} A${rx} ${h} 0 0 1 ${cx + rx} ${cy} A${rx} ${ry} 0 0 1 ${cx - rx} ${cy}Z" fill="url(#domeG)" stroke="rgba(0,0,0,.35)" stroke-width=".8"/><path d="M${cx - rx * 0.55} ${cy - h * 0.55} Q${cx} ${cy - h * 1.05} ${cx + rx * 0.55} ${cy - h * 0.55}" stroke="${c2}" stroke-width="1.3" fill="none" opacity=".8"/><circle cx="${cx}" cy="${cy - h * 0.55}" r="2" fill="${glass}"><animate attributeName="opacity" values="1;.3;1" dur="${1.2 + i * 0.3}s" repeatCount="indefinite"/></circle>`;
+    }
+    if (l >= 3) s += isoBox(x + 5.4, y + 0.2, 0, 0.7, 1.4, 1.6, '#3A4049') + isoWin('R', x + 5.4, y + 0.2, 0.7, 1.4, 0.2, 1.2, 1.1, 1.3, '#4FD1E0');
+  } else if (k === 'mess') {
+    const [x, y] = FAC_LOTS.mess;
+    s += isoBox(x, y, 0, 3.2, 2.4, 1.3, '#A0785A', { top: '#6E5544' });
+    s += isoPoly([[x, y + 2.4, 1.1], [x + 3.2, y + 2.4, 1.1], [x + 3.2, y + 3.0, 0.75], [x, y + 3.0, 0.75]], c2, 'stroke="rgba(0,0,0,.3)" stroke-width=".6"');
+    s += isoWin('L', x, y, 3.2, 2.4, 0.4, 1.4, 0.3, 0.85, '#FFD58A', 'opacity=".85"') + isoWin('L', x, y, 3.2, 2.4, 1.8, 2.8, 0.3, 0.85, '#FFD58A', 'opacity=".85"');
+    s += isoBox(x + 2.5, y + 0.3, 1.3, 0.4, 0.4, 0.9, '#5E5A55');
+    const [sx, sy] = isoP(x + 2.7, y + 0.5, 2.3); s += `<circle cx="${sx + 3}" cy="${sy - 6}" r="4" fill="#C9CED5" opacity=".5"><animate attributeName="cy" values="${sy - 4};${sy - 18}" dur="2.5s" repeatCount="indefinite"/><animate attributeName="opacity" values=".6;0" dur="2.5s" repeatCount="indefinite"/></circle>`;
+    for (let i = 0; i < l; i++) { const tx = x + 0.4 + (i % 3) * 1.1, ty = y + 3.3 + Math.floor(i / 3) * 0.6; s += isoBox(tx, ty, 0, 0.45, 0.45, 0.35, '#7A5A3E') + isoLine([tx + 0.22, ty + 0.22, 0.35], [tx + 0.22, ty + 0.22, 0.9], '#C9D1DA', 0.8) + isoEll(tx + 0.22, ty + 0.22, 0.95, 0.35, c1); }
+    if (l >= 4) s += isoBox(x + 3.2, y + 0.2, 0, 0.9, 2, 1, '#8E6A4F');
+    if (l >= 5) { const [nx, ny] = isoP(x + 0.2, y + 2.4, 1.6); s += `<rect x="${nx}" y="${ny - 10}" width="34" height="9" rx="2" fill="#15181E" stroke="${c2}"/><text x="${nx + 17}" y="${ny - 3}" text-anchor="middle" font-size="6.5" fill="${c2}" font-family="sans-serif" font-weight="700">MESS</text>`; }
+  }
+  return s;
+}
+function scoutMasts(l, gb) {
+  const spots = [[0.6, 0.6], [23.2, 0.6], [12, 0.4], [0.6, 17.2], [23.2, 17.2]], c2 = gb.c2;
+  let s = '';
+  for (let i = 0; i < l; i++) {
+    const [x, y] = spots[i], H = 4.2;
+    s += isoLine([x - 0.25, y, 0], [x, y, H], '#9AA3AE', 1.3) + isoLine([x + 0.25, y, 0], [x, y, H], '#9AA3AE', 1.3);
+    for (let z = 0.8; z < H; z += 0.9) s += isoLine([x - 0.2 * (1 - z / H), y, z], [x + 0.2 * (1 - z / H), y, z], '#9AA3AE', 0.8);
+    const [dx, dy] = isoP(x, y, H); s += `<g transform="translate(${dx} ${dy}) rotate(-20)"><ellipse rx="6" ry="3" fill="#D9DEE5" stroke="#5A626E" stroke-width=".8"/></g><circle cx="${dx}" cy="${dy - 6}" r="1.8" fill="${c2}"><animate attributeName="opacity" values="1;.15;1" dur="${1.3 + i * 0.4}s" repeatCount="indefinite"/></circle>`;
+  }
+  if (l >= 3) for (let i = 0; i < l - 2; i++) { const [dx, dy] = isoP(6 + i * 6, 8 - i, 6); s += `<g><path d="M${dx - 7} ${dy} h14 M${dx} ${dy - 3} v6" stroke="#2A2F37" stroke-width="2"/><circle cx="${dx}" cy="${dy}" r="2.4" fill="${c2}"/><animateTransform attributeName="transform" type="translate" values="0 0;${8 - i * 4} -4;0 0" dur="${4 + i}s" repeatCount="indefinite"/></g>`; }
+  return s;
+}
+const FAC_ORDER = ['medbay', 'simpods', 'command', 'hangar', 'mess', 'workshop'];
+function baseSVG() {
+  const gb = guildBanner() || { c1: '#2F7DD1', c2: '#E2A52B', c3: '#D9DCE2' }, sel = UI.sel.fac || 'command', bld = G.building;
+  let s = `<defs><linearGradient id="domeG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#CFF3FF"/><stop offset="1" stop-color="#3E8FB0"/></linearGradient>
+    <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shadeHex(gb.c1, -70)}"/><stop offset="1" stop-color="#0E141C"/></linearGradient></defs>
+    <rect width="660" height="430" fill="url(#skyG)"/>`;
+  // platform with skirts, roads and grid
+  s += isoPoly([[0, 18, 0], [24, 18, 0], [24, 18, -1.2], [0, 18, -1.2]], '#2A3038') + isoPoly([[24, 0, 0], [24, 18, 0], [24, 18, -1.2], [24, 0, -1.2]], '#20252C');
+  s += isoPoly([[0, 0, 0], [24, 0, 0], [24, 18, 0], [0, 18, 0]], '#434A53', 'stroke="#5A626E" stroke-width="1"');
+  for (let i = 2; i < 24; i += 2) s += isoLine([i, 0, 0], [i, 18, 0], 'rgba(255,255,255,.04)', 1); for (let j = 2; j < 18; j += 2) s += isoLine([0, j, 0], [24, j, 0], 'rgba(255,255,255,.04)', 1);
+  s += isoPoly([[8.4, 0, 0.01], [9.6, 0, 0.01], [9.6, 18, 0.01], [8.4, 18, 0.01]], '#363C44') + isoPoly([[0, 9, 0.01], [24, 9, 0.01], [24, 10, 0.01], [0, 10, 0.01]], '#363C44');
+  s += isoLine([9, 0, 0.02], [9, 18, 0.02], 'rgba(233,194,74,.5)', 1, 'stroke-dasharray="5 6"') + isoLine([0, 9.5, 0.02], [24, 9.5, 0.02], 'rgba(233,194,74,.5)', 1, 'stroke-dasharray="5 6"');
+  s += isoPoly([[0, 0, 0], [24, 0, 0], [24, 0, 0.5], [0, 0, 0.5]], '#565E68') + isoPoly([[0, 0, 0], [0, 18, 0], [0, 18, 0.5], [0, 0, 0.5]], '#4A515A');
+  for (const k of FAC_ORDER) {
+    const l = G.facilities[k], lot = FAC_LOTS[k];
+    const under = bld && bld.k === k;
+    let g = facDraw(k, l, gb);
+    if (under) {
+      const [x, y, w, d] = lot;
+      for (let u = 0; u <= w; u += 1) g += isoLine([x + u, y + d + 0.15, 0], [x + u, y + d + 0.15, 2.4], '#E2A52B', 1, 'opacity=".9"');
+      for (let z = 0.8; z <= 2.4; z += 0.8) g += isoLine([x, y + d + 0.15, z], [x + w, y + d + 0.15, z], '#E2A52B', 1, 'opacity=".9"');
+      const [bx, by] = isoP(x + w / 2, y + d / 2, 5); g += `<g><rect x="${bx - 30}" y="${by - 11}" width="60" height="15" rx="3" fill="#15181E" stroke="#E2A52B"/><text x="${bx}" y="${by}" text-anchor="middle" font-size="9" fill="#FFD58A" font-family="sans-serif" font-weight="700">Lv ${l + 1} · ${bld.days}d</text></g>`;
+    }
+    const [lx, ly] = isoP(lot[0] + lot[2] / 2, lot[1] + lot[3] / 2, 0);
+    s += `<g class="facb ${sel === k ? 'sel' : ''}" data-act="facSel" data-k="${k}" tabindex="0" role="button" aria-label="${FACILITIES[k].name}, level ${l}"><title>${FACILITIES[k].name} · Level ${l}</title>${isoPoly([[lot[0] - 0.3, lot[1] - 0.3, 0.01], [lot[0] + lot[2] + 0.3, lot[1] - 0.3, 0.01], [lot[0] + lot[2] + 0.3, lot[1] + lot[3] + 0.3, 0.01], [lot[0] - 0.3, lot[1] + lot[3] + 0.3, 0.01]], sel === k ? 'rgba(240,166,58,.22)' : 'rgba(0,0,0,.12)', `stroke="${sel === k ? '#F0A63A' : 'rgba(255,255,255,.08)'}" stroke-width="1.2" stroke-dasharray="${sel === k ? '0' : '4 4'}"`)}${g}
+      <g transform="translate(${lx} ${ly + 22})"><rect x="-42" y="-8" width="84" height="15" rx="7.5" fill="rgba(10,14,20,.78)" stroke="${sel === k ? '#F0A63A' : 'rgba(255,255,255,.15)'}"/><text x="-34" y="3" font-size="8.5" fill="#E6EBF2" font-family="sans-serif" font-weight="600">${FACILITIES[k].name}</text>${[1, 2, 3, 4, 5].map(i => `<circle cx="${12 + i * 5.5}" cy="-0.5" r="2" fill="${i <= l ? '#F0A63A' : 'rgba(255,255,255,.18)'}"/>`).join('')}</g></g>`;
+  }
+  const lS = G.facilities.scout;
+  s += `<g class="facb ${sel === 'scout' ? 'sel' : ''}" data-act="facSel" data-k="scout" role="button" tabindex="0" aria-label="Scout Network, level ${lS}"><title>Scout Network · Level ${lS}</title>${scoutMasts(lS, gb)}</g>`;
+  if (bld && bld.k === 'scout') { const [bx, by] = isoP(12, 0.4, 5.2); s += `<rect x="${bx - 30}" y="${by - 11}" width="60" height="15" rx="3" fill="#15181E" stroke="#E2A52B"/><text x="${bx}" y="${by}" text-anchor="middle" font-size="9" fill="#FFD58A" font-family="sans-serif" font-weight="700">Lv ${lS + 1} · ${bld.days}d</text>`; }
+  const [gx, gy] = isoP(0.7, 9.5, 0.5); s += `<line x1="${gx}" y1="${gy}" x2="${gx}" y2="${gy - 46}" stroke="#C9D1DA" stroke-width="1.5"/><g transform="translate(${gx + 1} ${gy - 46}) scale(.2)">${bannerSVG(G.banner, 100).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')}</g>`;
+  return `<svg class="basesvg" viewBox="0 0 660 430" role="img" aria-label="${esc(G.name)} base">${s}</svg>`;
+}
+function renderFacilities() {
+  const sel = UI.sel.fac || 'command', F = FACILITIES[sel], l = G.facilities[sel], cost = F.cost * l, days = 3 * l, maxed = l >= 5, bld = G.building;
+  const busy = bld && bld.k !== sel, mine = bld && bld.k === sel;
+  const pips = (lv) => `<span class="lvpips">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= lv ? 'on' : ''}"></i>`).join('')}</span>`;
+  const side = `<div class="panel facside"><div class="tiny muted" style="letter-spacing:.14em; text-transform:uppercase">Facility</div><h2 style="margin:2px 0 4px">${F.name}</h2>${pips(l)} <span class="small muted">Level ${l} of 5</span>
+    <p class="small" style="margin:8px 0">${F.desc}</p>
+    <div class="facnow"><div><span>Now</span><b>${F.effect(l)}</b></div>${maxed ? '<div><span>Next</span><b class="good">Fully upgraded</b></div>' : `<div><span>Level ${l + 1}</span><b class="good">${F.effect(l + 1)}</b></div>`}</div>
+    ${maxed ? '' : mine ? `<div class="small" style="margin-top:8px"><b>Under construction</b> · ${bld.days} day${bld.days === 1 ? '' : 's'} left</div>${bar(1 - bld.days / (3 * l))}` : `<div class="row" style="justify-content:space-between; margin-top:10px"><div class="small"><b>${fmt(cost)}</b> cr · ${days} days</div><button class="btn primary sm" data-act="build" data-k="${sel}" ${busy || G.credits < cost ? 'disabled' : ''}>Upgrade</button></div>${busy ? `<div class="tiny warnc" style="margin-top:4px">Crews are busy on the ${FACILITIES[bld.k].name}. One project at a time.</div>` : G.credits < cost ? '<div class="tiny bad" style="margin-top:4px">Not enough credits.</div>' : ''}`}</div>`;
+  const list = `<div class="faclist">${Object.keys(FACILITIES).map(k => { const lv = G.facilities[k]; return `<button class="card ${sel === k ? 'on' : ''}" data-act="facSel" data-k="${k}"><div class="meta"><div class="nm">${FACILITIES[k].name}${bld && bld.k === k ? ' <span class="chip" style="color:var(--amber)">Building</span>' : ''}</div><div class="tiny muted">${FACILITIES[k].effect(lv)}</div></div>${pips(lv)}</button>`; }).join('')}</div>`;
+  return `<div class="facwrap"><div class="panel" style="padding:6px">${baseSVG()}</div><div class="col" style="gap:10px">${side}${list}</div></div>`;
+}
+ACT.facSel = d => { UI.sel.fac = d.k; render(); };
+
 function renderHangar() {
   const sub = UI.sub.hangar || 'mechs';
   const tabs = `<div class="tabs">${[['mechs', 'Mechs'], ['market', 'Market'], ['storage', 'Storage'], ['fac', 'Facilities']].map(([k, n]) => `<button class="tab ${sub === k ? 'on' : ''}" data-act="sub" data-s="hangar" data-v="${k}">${n}</button>`).join('')}</div>`;
@@ -4358,13 +4660,9 @@ function renderHangar() {
     let sel = mechById(UI.sel.mech) || G.mechs[0];
     body = `<div class="pane2"><div class="list">${G.mechs.map(m => { const ch = chassisOf(m), p = G.pilots.find(q => q.alive && q.mechId === m.id); return `<button class="card ${sel === m ? 'on' : ''}" data-act="selMech" data-id="${m.id}"><img src="${mechThumb(m, 22)}" width="44" height="44" alt=""><div class="meta"><div class="nm">${ch.name} <span class="small muted">${ch.wt} · ${FRAME_TYPES[frameOf(m).type].name} · Mob ${ovrTxt(mobilityOf(ch, frameOf(m)).score)}</span></div><div class="row wrap" style="gap:4px">${clsChip(ch.cls)}<span class="small muted">${p ? esc(p.call) : 'Unassigned'}</span>${m.wrecked ? '<span class="chip inj">Wrecked</span>' : m.repair > 0 ? `<span class="chip">Repair ${m.repair}d</span>` : ''}</div></div><div class="small">${Math.round(mechHpPct(m) * 100)}%</div></button>`; }).join('')}</div>
     <div>${sel ? mechDetail(sel) : '<p class="muted">No mechs. Buy one from the Market.</p>'}</div></div>`;
-  } else if (sub === 'market') {
-    body = `<p class="small muted">Stock refreshes every Monday. Module tiers are capped by your Workshop level (${G.facilities.workshop}).</p><div class="grid3">${G.market.map((it, i) => it.type === 'mod' ? `<div class="panel col" style="gap:4px"><div class="row" style="justify-content:space-between"><b style="font-family:var(--fh)">${MK[it.t]} ${MODULES[it.k].name}</b><span class="chip">${MODULES[it.k].slot === 'W' ? 'Weapon' : MODULES[it.k].slot === 'S' ? 'System' : 'Utility'}</span></div><div class="small muted">${MODULES[it.k].desc} · Power ${MODULES[it.k].power}${MODULES[it.k].reload ? ` · CD ${MODULES[it.k].reload}s` : ''}</div><button class="btn sm" data-act="buy" data-i="${i}">Buy for ${fmt(it.price)}</button></div>` : (() => { const ch = CHASSIS.find(c => c.id === it.ch); const fake = { ch: ch.id, modules: DEFAULT_LOADOUT[ch.cls][ch.wt].map(k => ({ k, t: 1 })), frame: it.frame }; return `<div class="panel col" style="gap:4px"><div class="row"><img src="${mechThumb(fake, 22)}" width="44" height="44" alt=""><div><b style="font-family:var(--fh)">${ch.name} chassis</b><div class="row" style="gap:4px">${clsChip(ch.cls)}<span class="small muted">${ch.wt}</span></div></div></div><div class="small muted">${SIGS[ch.sig].name}: ${SIGS[ch.sig].desc}</div><button class="btn sm" data-act="buy" data-i="${i}">Buy for ${fmt(it.price)}</button></div>`; })()).join('')}</div>`;
-  } else if (sub === 'storage') {
-    body = `<p class="small muted">Spare modules. Upgrade a module's tier with salvage (Workshop level must exceed the current tier), or sell it for half price.</p><div class="grid3">${G.inventory.map((it, i) => { const T = MODULES[it.k]; const upC = it.t * 10, upCr = it.t * 400; return `<div class="panel col" style="gap:4px"><b style="font-family:var(--fh)">${MK[it.t]} ${T.name}</b><div class="small muted">${T.desc} · Power ${T.power}</div><div class="row wrap"><button class="btn sm" data-act="upMod" data-i="${i}" ${it.t >= G.facilities.workshop || G.salvage < upC ? 'disabled' : ''}>Upgrade (${upC} salvage, ${fmt(upCr)} cr)</button><button class="btn sm ghost" data-act="sellMod" data-i="${i}">Sell ${fmt(T.price * (1 + 0.6 * (it.t - 1)) * 0.5)}</button></div></div>`; }).join('') || '<p class="muted small">Storage is empty.</p>'}</div>`;
-  } else {
-    body = `<div class="panel"><table class="t"><tr><th>Facility</th><th>Level</th><th>Now</th><th>Next</th><th></th></tr>${Object.keys(FACILITIES).map(k => { const F = FACILITIES[k], l = G.facilities[k], cost = F.cost * l, days = 3 * l, maxed = l >= 5; return `<tr><td><b>${F.name}</b><div class="tiny muted">${F.desc}</div></td><td>${l}</td><td class="small">${F.effect(l)}</td><td class="small muted">${maxed ? 'Maxed' : F.effect(l + 1)}</td><td>${maxed ? '' : `<button class="btn sm" data-act="build" data-k="${k}" ${G.building || G.credits < cost ? 'disabled' : ''}>${fmt(cost)} · ${days}d</button>`}</td></tr>`; }).join('')}</table>${G.building ? `<p class="small">Building: ${FACILITIES[G.building.k].name}, ${G.building.days} days left. One project at a time.</p>` : ''}</div>`;
-  }
+  } else if (sub === 'market') body = renderMarket();
+  else if (sub === 'storage') body = renderStorage();
+  else body = renderFacilities();
   return `<div class="page">${tabs}${body}</div>`;
 }
 ACT.selMech = d => { UI.sel.mech = d.id; render(); };
