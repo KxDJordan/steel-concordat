@@ -920,12 +920,24 @@ function chassisOf(m) { return CHASSIS.find(c => c.id === m.ch); }
 // Mobility: weight class sets the base; leg type nudges it (reverse-joint = nimble, heavy legs = planted)
 const LEG_MOB = { std: { sp: 1, ac: 1, tu: 1, mass: 1 }, reverse: { sp: 1.08, ac: 1.12, tu: 1.06, mass: 1 }, heavy: { sp: 0.94, ac: 0.9, tu: 0.94, mass: 1.15 } };
 const WT_MOVE = { Light: { strafe: [0.45, 1.2], sd: 135, jets: 0.65 }, Medium: { strafe: [1.1, 2.4], sd: 90, jets: 1 }, Heavy: { strafe: [1.9, 3.5], sd: 65, jets: 1.2 }, Assault: { strafe: [2.6, 4.6], sd: 45, jets: 1.45 } };
+// Role tunes it on top: melee frames must close the gap, so they are the fastest and dash most often at any weight;
+// long-range and tank frames trade mobility for staying power. The role spread is wider than the leg spread,
+// so a melee chassis always outpaces a long-range chassis of the same weight whatever legs each rolls.
+const CLASS_MOB = {
+  MEL: { sp: 1.14, ac: 1.15, tu: 1.1, cd: 0.72 },
+  CTL: { sp: 1.02, ac: 1.05, tu: 1.05, cd: 0.9 },
+  SUP: { sp: 0.98, ac: 1, tu: 1, cd: 1 },
+  TNK: { sp: 0.93, ac: 0.92, tu: 0.95, cd: 1.08 },
+  LR: { sp: 0.9, ac: 0.92, tu: 0.95, cd: 1.15 },
+};
+function classMob(cls) { return CLASS_MOB[cls] || CLASS_MOB.SUP; }
+function baseDashCd(ch) { return BOOST[ch.wt].cd * classMob(ch.cls).cd; }
 function mobilityOf(ch, f) {
-  const W = WEIGHTS[ch.wt], L = LEG_MOB[(f && f.legs) || 'std'];
-  const speed = Math.round(W.speed * L.sp), accel = Math.round(W.accel * L.ac), turn = +(W.turn * L.tu).toFixed(1);
-  const score = Math.round(clamp(speed / 230 * 60 + accel / 1050 * 25 + turn / 9 * 15, 1, 99));
-  const agility = Math.round(clamp(accel / 1050 * 55 + turn / 9 * 45, 1, 99));
-  return { speed, accel, turn, score, agility, topSpd: Math.round(clamp(speed / 230 * 100, 1, 99)) };
+  const W = WEIGHTS[ch.wt], L = LEG_MOB[(f && f.legs) || 'std'], C = classMob(ch.cls);
+  const speed = Math.round(W.speed * L.sp * C.sp), accel = Math.round(W.accel * L.ac * C.ac), turn = +(W.turn * L.tu * C.tu).toFixed(1);
+  const score = Math.round(clamp(speed / 265 * 60 + accel / 1250 * 25 + turn / 10.3 * 15, 1, 99));
+  const agility = Math.round(clamp(accel / 1250 * 55 + turn / 10.3 * 45, 1, 99));
+  return { speed, accel, turn, score, agility, topSpd: Math.round(clamp(speed / 265 * 100, 1, 99)) };
 }
 // Dash-dodge vs missiles: pilot reflex + melee skill + gear (vector thrusters / jets) + frame weight
 // Booster dash: every mech has one. Weight class sets cooldown, push and how well the pilot uses cover.
@@ -944,7 +956,7 @@ function dodgeProfile(stats, cls, wt, perks, mods) {
   if (P.has('dancer')) ch += 0.15;
   if (P.has('evasive')) ch += 0.05;
   if (P.has('sp_duelist')) ch += 0.1;
-  let cd = B0.cd;
+  let cd = B0.cd * classMob(cls).cd;
   if (vec) cd *= 0.75 / (1 + 0.08 * (vec.t - 1));
   cd *= clamp(1.12 - stats.reflex / 320, 0.8, 1.06);
   if (P.has('dancer')) cd *= 0.85;
@@ -5906,7 +5918,7 @@ function chassisCard(it, i) {
   const fake = { ch: ch.id, modules: DEFAULT_LOADOUT[ch.cls][ch.wt].map(k => ({ k, t: 1 })), frame: it.frame };
   const mb = mobilityOf(ch, it.frame);
   return `<div class="panel mcard chassis" style="--mc:var(--amber)"><div class="row" style="gap:10px">${mechThumbEl(fake, 64, 'background:var(--panel2); border-radius:8px')}<div class="grow" style="min-width:0"><div class="row" style="justify-content:space-between"><b class="mname">${ch.name}</b><span class="chip">${ch.wt}</span></div><div class="row" style="gap:5px; margin-top:2px">${clsChip(ch.cls)}${it.frame ? `<span class="chip">${FRAME_TYPES[it.frame.type].name} frame</span>` : ''}</div></div></div>
-    <div class="mgrid"><div><span>Armor</span><b>${W.armor}</b></div><div><span>HP</span><b>${W.hp}</b></div><div><span>Speed</span><b>${mb.speed}</b></div><div><span>Mobility</span><b>${ovrTxt(mb.score)}</b></div><div><span>Reactor</span><b>${W.reactor}</b></div><div><span>Dash CD</span><b>${cdChip(BOOST[ch.wt].cd)}</b></div></div>
+    <div class="mgrid"><div><span>Armor</span><b>${W.armor}</b></div><div><span>HP</span><b>${W.hp}</b></div><div><span>Speed</span><b>${mb.speed}</b></div><div><span>Mobility</span><b>${ovrTxt(mb.score)}</b></div><div><span>Reactor</span><b>${W.reactor}</b></div><div><span>Dash CD</span><b>${cdChip(+baseDashCd(ch).toFixed(1))}</b></div></div>
     <div class="row" style="gap:4px; margin-top:6px">${W.slots.map(s => `<span class="slotpip" style="--mc:${SLOT_META[s].c}" title="${SLOT_META[s].name} slot">${s}</span>`).join('')}<span class="tiny muted" style="margin-left:4px">module slots</span></div>
     <div class="small" style="margin-top:6px"><b>${SIGS[ch.sig].name}</b> <span class="muted">${SIGS[ch.sig].desc}</span></div>
     <div class="mfoot"><span class="price">${fmt(it.price)} cr</span><button class="btn sm primary" data-act="buy" data-i="${i}" ${G.credits < it.price ? 'disabled' : ''}>Buy chassis</button></div></div>`;
@@ -6217,7 +6229,7 @@ function mechDetail(m) {
   <div class="small"><b>${frameName(frameOf(m))}</b> <span class="muted">${frameOf(m).serial || ''} · ${frameDesc(frameOf(m))}</span></div>
   ${m.modules.some(x => x && x.k === 'pointdef') ? '<div class="small" style="color:var(--cyan)">Point-defense active: shoots down missiles near this mech and its allies</div>' : ''}
   <div class="small muted">Pilot: ${p ? esc(pilotName(p)) : 'none'} · Affinity ${m.affinity || 0}/10</div>
-  ${(() => { const mb = mobilityOf(ch, frameOf(m)); return `<div class="row" style="gap:8px; margin:2px 0"><span class="small muted">Mobility</span>${ovrBadge(mb.score, '', 'display:inline-block; font-size:15px')}<span class="tiny muted">${mb.speed} top speed · ${mb.accel} accel · ${mb.turn} turn${frameOf(m).legs !== 'std' ? ` · ${FRAME_LABELS[frameOf(m).legs]} ${frameOf(m).legs === 'reverse' ? '+' : '−'}` : ''}</span></div><div class="statrow"><span>Top speed</span>${statCells(mb.topSpd)}</div><div class="statrow"><span>Agility</span>${statCells(mb.agility)}</div><div class="tiny muted">Booster dash cooldown ${BOOST[ch.wt].cd}s base${m.modules.some(x => x && x.k === 'vector') ? ' (−25% Vector Thrusters)' : ''} · cover use ${Math.round(BOOST[ch.wt].cover * 100)}%</div>`; })()}
+  ${(() => { const mb = mobilityOf(ch, frameOf(m)); return `<div class="row" style="gap:8px; margin:2px 0"><span class="small muted">Mobility</span>${ovrBadge(mb.score, '', 'display:inline-block; font-size:15px')}<span class="tiny muted">${mb.speed} top speed · ${mb.accel} accel · ${mb.turn} turn${frameOf(m).legs !== 'std' ? ` · ${FRAME_LABELS[frameOf(m).legs]} ${frameOf(m).legs === 'reverse' ? '+' : '−'}` : ''}</span></div><div class="statrow"><span>Top speed</span>${statCells(mb.topSpd)}</div><div class="statrow"><span>Agility</span>${statCells(mb.agility)}</div><div class="tiny muted">Booster dash cooldown ${baseDashCd(ch).toFixed(1)}s base${m.modules.some(x => x && x.k === 'vector') ? ' (−25% Vector Thrusters)' : ''} · cover use ${Math.round(BOOST[ch.wt].cover * 100)}%</div>`; })()}
   ${['body', 'arms', 'legs'].map(k => `<div class="statrow"><span>${k[0].toUpperCase() + k.slice(1)}</span>${bar(1 - m.dmg[k] / mx[k], 'hp')}<span class="tiny">${mx[k] - m.dmg[k]}</span></div>`).join('')}
   <div class="row wrap" style="margin-top:4px">${m.wrecked ? `<button class="btn sm primary" data-act="repair" data-id="${m.id}" ${away || m.repair > 0 ? 'disabled' : ''}>Rebuild</button><button class="btn sm danger" data-act="scrap" data-id="${m.id}" ${away ? 'disabled' : ''}>Scrap for salvage</button>` : dmg > 0 ? `<button class="btn sm" data-act="repair" data-id="${m.id}" ${away || m.repair > 0 ? 'disabled' : ''}>${m.repair > 0 ? `Repairing · ${m.repair}d` : 'Start repairs'}</button>` : '<span class="small good">Fully repaired</span>'}<button class="btn sm" data-act="paint" data-id="${m.id}" ${away ? 'disabled title="Away on deployment"' : ''}>Paint</button>${m.paint ? `<span class="pdots" title="Custom livery"><i style="background:${m.paint.c1}"></i><i style="background:${m.paint.c2}"></i><i style="background:${m.paint.c3}"></i></span>` : ''}</div>
   </div></div>
