@@ -442,6 +442,105 @@ select,input[type=text]{border-radius:5px}
 .facnow{display:grid; gap:6px} .facnow > div{background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:6px 9px; display:flex; flex-direction:column} .facnow span{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em} .facnow b{font-size:13px}
 .faclist{display:flex; flex-direction:column; gap:5px} .faclist .card{padding:7px 10px}
 @media (max-width: 1000px){ .facwrap{grid-template-columns:1fr} }
+
+/* ===================== RESPONSIVE LAYOUT (narrow windows, phones in landscape) ===================== */
+/* grid children default to min-width:auto, which lets wide content push the grid past the screen */
+.grid2 > *, .grid3 > *, .grid4 > *, .pane2 > *, .facwrap > *, .draftgrid > *, .fagrid > *{min-width:0}
+.hqgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.weekgrid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px}
+.fagrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px}
+.draftgrid{display:grid; grid-template-columns:repeat(var(--n,4),minmax(0,1fr)); gap:10px}
+.leaguegrid{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.sugrid{grid-template-columns:minmax(260px,360px) minmax(0,1fr); align-items:start}
+.sugrid.solo{grid-template-columns:minmax(0,1fr)}
+.expgrid{grid-template-columns:minmax(0,2.3fr) minmax(250px,1fr); margin-top:12px; align-items:start}
+.debgrid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); align-items:start}
+.pdtop{align-items:start}
+.pdbody{margin-top:12px}
+.tscroll{overflow-x:auto}
+.paintprev{width:300px; height:300px; border-radius:12px; border:1px solid var(--line)}
+.exp-title{font-size:28px}
+#rail{overflow-y:auto; scrollbar-width:none}
+#rail::-webkit-scrollbar{display:none}
+.supilots .card{flex:none}
+
+/* safe areas: in landscape the notch / camera cutout sits on the left or right edge */
+#topbar{padding-left:calc(14px + env(safe-area-inset-left,0px)); padding-right:calc(14px + env(safe-area-inset-right,0px))}
+#rail{width:calc(74px + env(safe-area-inset-left,0px)); padding-left:env(safe-area-inset-left,0px)}
+.page{padding-right:calc(16px + env(safe-area-inset-right,0px))}
+.fullpage{padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px)}
+#modal{padding-left:calc(12px + env(safe-area-inset-left,0px)); padding-right:calc(12px + env(safe-area-inset-right,0px))}
+
+@media (max-width: 1100px){
+  /* draft cards: portrait and rating on one line, name and chips get the full card width below */
+  .draftcard > .row:first-child{flex-wrap:wrap; justify-content:space-between}
+  .draftcard > .row:first-child > .grow{order:3; flex-basis:100%}
+  .draftcard .portrait.md{width:56px; height:56px}
+  .pdtop, .pdbody{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width: 900px){
+  .hqgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hqgrid > :nth-child(3){grid-column:1 / -1}
+  .pane2{grid-template-columns:minmax(200px,260px) minmax(0,1fr); gap:10px}
+  .sugrid{grid-template-columns:minmax(220px,290px) minmax(0,1fr)}
+  .leaguegrid{grid-template-columns:minmax(0,1.6fr) minmax(170px,1fr)}
+  .debgrid{grid-template-columns:minmax(0,1fr)}
+  .portrait.lg{width:88px; height:88px}
+}
+@media (max-width: 780px){
+  .expgrid{grid-template-columns:minmax(0,1fr)}
+  .draftgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .opsgrid{grid-template-columns:minmax(0,1fr); gap:6px}
+}
+
+/* phones held sideways: short screens get a compact shell so content isn't buried under chrome */
+@media (max-height: 540px) and (orientation: landscape){
+  #topbar{height:40px; gap:10px}
+  #topbar .gname{font-size:13px; max-width:150px}
+  #topbar .stat{padding-left:8px}
+  #topbar .stat b{font-size:13px}
+  #topbar .stat span{font-size:8.5px}
+  .leaguechip{padding:2px 7px} .leaguechip b{font-size:12.5px} .leaguechip span{font-size:9px}
+  #rail{width:calc(58px + env(safe-area-inset-left,0px)); padding-top:4px; padding-bottom:4px; gap:2px}
+  .navb{margin:0 5px; padding:5px 1px 4px; font-size:9px; gap:1px; letter-spacing:.03em}
+  .navb svg{width:19px; height:19px}
+  .navb.on::before{left:-5px; top:8px; bottom:8px}
+  .page{padding:10px calc(12px + env(safe-area-inset-right,0px)) 64px 12px}
+  .tab{padding:5px 10px; font-size:10.5px}
+  .page > .tabs{margin-bottom:8px}
+  .panel{padding:10px}
+  h2{font-size:18px}
+  .spacer{height:8px}
+  .league-next .bigcount{font-size:28px}
+  /* day controls: smaller floating buttons */
+  #continue{min-height:40px; font-size:12.5px; padding-left:14px; padding-right:28px; bottom:calc(8px + env(safe-area-inset-bottom,0px)); right:calc(10px + env(safe-area-inset-right,0px))}
+  #continue .simday{font-size:9px; margin-top:1px}
+  #nextday{min-height:40px; font-size:12px; padding:0 12px; bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  /* full-screen pages */
+  .setup{padding:12px 16px 24px}
+  .steps{margin-bottom:8px}
+  .portrait.lg{width:80px; height:80px}
+  .mechwin{height:100px}
+  .formation{grid-template-rows:repeat(3,44px)}
+  .supilots{flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px}
+  .supilots .card{padding:4px 8px 4px 4px !important}
+  .supilots .portrait{width:34px; height:34px}
+  .exp-title{font-size:22px}
+  .exp-head .btn{min-height:34px}
+  .expgrid{margin-top:8px}
+  .sector .nlabel{font-size:9px}
+  /* modals use nearly the whole screen */
+  #modal{padding-top:6px; padding-bottom:6px}
+  #modal .box{padding:12px; max-height:100%}
+  .paintprev{width:200px; height:200px}
+  /* battle HUD */
+  #bctrl .btn{min-height:32px; padding:0 10px; font-size:11px}
+  #btitle b{font-size:13px} #btitle div{font-size:10.5px}
+}
+@media (max-height: 540px) and (orientation: landscape) and (min-width: 600px){
+  /* keep the base drawing next to its controls instead of a screen-tall picture */
+  .facwrap{grid-template-columns:minmax(0,1.2fr) minmax(220px,1fr)}
+}
 </style>
 </head>
 <body>
@@ -3931,7 +4030,7 @@ const WEAPON_ART = {
   const NV = 11, NF = 4, WN = [...new Set(Object.values(WEAPON_ART).flatMap(x => x.frames ? Array.from({ length: x.frames }, (_, i) => x.img + i) : [x.img]))]; let pending = NV * 2 + NF + WN.length;
   const load = (src, done) => {
     const img = new Image();
-    img.onload = () => { done({ img, fw: img.width / 4, fh: img.height }); if (--pending === 0) MECH_ART.ready = true; };
+    img.onload = () => { done({ img, fw: img.width / 4, fh: img.height }); if (--pending === 0) { MECH_ART.ready = true; MECH_THUMBS.clear(); refreshMechThumbs(); } };
     img.onerror = () => { MECH_ART.on = false; };
     img.src = src;
   };
@@ -5212,24 +5311,45 @@ function statusChips(p) {
   if (p.morale < 22) s += '<span class="chip inj">Broken</span>';
   return s;
 }
-const MECH_THUMBS = new Map();
-function mechThumb(m, size = 72, color, bn) {
-  const gb = bn ? normBanner(bn) : (m.paint && !color) ? m.paint : guildBanner(), c1 = color || (gb ? gb.c1 : '#2F7DD1'), c2 = gb ? gb.c2 : '#F0A63A', c3 = gb ? gb.c3 : '#D9DCE2';
-  const fr = frameOf(m);
-  const key = m.ch + m.modules.map(x => x ? x.k : '-').join(',') + c1 + c2 + c3 + size + JSON.stringify(fr);
-  if (MECH_THUMBS.has(key)) return MECH_THUMBS.get(key);
-  const c = document.createElement('canvas'); c.width = c.height = size * 2;
-  const ctx = c.getContext('2d'); const ch = chassisOf(m), W = WEIGHTS[ch.wt];
-  const mx = mechMax(m);
-  const u = { x: 0, y: 0, r: W.r, legAng: -Math.PI / 2, aim: -Math.PI / 2, walk: 0.25, weapons: m.modules.filter(x => x && MODULES[x.k].slot === 'W').map(x => ({ k: x.k, T: MODULES[x.k], charge: 0, cd: 0 })), color: c1, color2: c2, color3: c3, team: 0, wt: ch.wt, hp: { body: mx.body, arms: mx.arms, legs: mx.legs }, max: mx, flash: 0, overheat: 0, alive: true, frame: fr, cls: ch.cls, pd: m.modules.some(x => x && x.k === 'pointdef') ? { aim: -Math.PI / 2 } : null, vx: 0, vy: 0, dashT: 0, heat: 0, id: 1 };
-  const k = size * 2 / (W.r * 3.1);
-  ctx.translate(size, size); ctx.scale(k, k);
-  drawMech(ctx, u, 0, { flat: true });
-  const url = c.toDataURL();
-  if (MECH_THUMBS.size > 160) MECH_THUMBS.delete(MECH_THUMBS.keys().next().value);
-  MECH_THUMBS.set(key, url);
-  return url;
+// Mech thumbnails are live <canvas> elements, not data-URL images: the sprite art loaded from file:// taints
+// any canvas it touches, so toDataURL() would fail. A tainted canvas still displays fine, so each thumbnail
+// draws the battle sprite (procedural frame until the art has loaded, then it redraws).
+const MECH_THUMBS = new Map(), THUMB_SPECS = new Map(); let THUMB_SEQ = 0;
+function mechThumbEl(m, px = 44, style = '', bn) {
+  const gb = bn ? normBanner(bn) : m.paint ? m.paint : guildBanner();
+  const spec = { m, px, c1: gb ? gb.c1 : '#2F7DD1', c2: gb ? gb.c2 : '#F0A63A', c3: gb ? gb.c3 : '#D9DCE2' };
+  const id = ++THUMB_SEQ; THUMB_SPECS.set(id, spec);
+  if (THUMB_SPECS.size > 600) THUMB_SPECS.delete(THUMB_SPECS.keys().next().value);
+  return `<canvas class="mthumb" data-thumb="${id}" width="${px * 2}" height="${px * 2}" style="width:${px}px; height:${px}px; flex:none; ${style}" aria-hidden="true"></canvas>`;
 }
+function mechThumbImage(spec) {
+  const { m, px, c1, c2, c3 } = spec, art = MECH_ART.on && MECH_ART.ready, fr = frameOf(m);
+  const ch = chassisOf(m), W = WEIGHTS[ch.wt], n = MECH_ART.variants.length || 8;
+  const artV = m.artV != null ? m.artV % n : m.id != null ? mechArtVariant(m) : hashStr(m.ch + JSON.stringify(fr)) % n;
+  const key = [m.ch, m.modules.map(x => x ? x.k : '-').join(','), c1, c2, c3, px, JSON.stringify(fr), art ? 'a' + artV : 'f'].join('|');
+  let c = MECH_THUMBS.get(key); if (c) return c;
+  const size = px * 2; c = document.createElement('canvas'); c.width = c.height = size;
+  const ctx = c.getContext('2d'), u = paintPreviewUnit(m, { c1, c2, c3, v: artV });
+  u.legAng = u.aim = -Math.PI / 2; u.walk = 0.25; if (u.pd) u.pd.aim = -Math.PI / 2;
+  if (art) { const k = size / (W.r * 3.7); ctx.translate(size / 2, size / 2 - W.r * k * 0.2); ctx.scale(k, k); drawMech(ctx, u, 0); }
+  else { const k = size / (W.r * 3.1); ctx.translate(size / 2, size / 2); ctx.scale(k, k); drawMech(ctx, u, 0, { flat: true }); }
+  if (MECH_THUMBS.size > 160) MECH_THUMBS.delete(MECH_THUMBS.keys().next().value);
+  MECH_THUMBS.set(key, c);
+  return c;
+}
+function paintThumb(cv) {
+  const id = +cv.dataset.thumb; if (THUMB_SPECS.has(id)) { cv._thumb = THUMB_SPECS.get(id); THUMB_SPECS.delete(id); }
+  if (!cv._thumb) return;
+  try { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(mechThumbImage(cv._thumb), 0, 0, cv.width, cv.height); } catch (e) { }
+}
+function refreshMechThumbs() { document.querySelectorAll('canvas[data-thumb]').forEach(paintThumb); }
+new MutationObserver(list => {
+  for (const r of list) for (const n of r.addedNodes) {
+    if (n.nodeType !== 1) continue;
+    if (n.matches('canvas[data-thumb]')) paintThumb(n);
+    n.querySelectorAll('canvas[data-thumb]').forEach(paintThumb);
+  }
+}).observe(document.body, { childList: true, subtree: true });
 
 /* ---------- render dispatcher ---------- */
 function applyGuildVars() {
@@ -5431,7 +5551,7 @@ function renderSetup() {
     <div class="row" style="align-items:flex-start; gap:24px; margin-top:12px">
       <div class="col" style="align-items:center; gap:10px; flex:none">
         <div id="bprev">${bannerSVG(S.banner, 110)}</div>
-        <div class="row" style="gap:6px"><div class="portrait md">${portraitSVG(sampleP, 'happy', S.banner)}</div><img src="${mechThumb(sampleM, 36, null, S.banner)}" width="72" height="72" alt="Mech preview" style="background:var(--panel2); border-radius:8px"><img src="${mechThumb(sampleM2, 36, null, S.banner)}" width="72" height="72" alt="Mech preview" style="background:var(--panel2); border-radius:8px"></div>
+        <div class="row" style="gap:6px"><div class="portrait md">${portraitSVG(sampleP, 'happy', S.banner)}</div>${mechThumbEl(sampleM, 72, 'background:var(--panel2); border-radius:8px', S.banner)}${mechThumbEl(sampleM2, 72, 'background:var(--panel2); border-radius:8px', S.banner)}</div>
         <div class="tiny muted">${slots.map(([k, n]) => `${n}: ${COLOR_NAMES[S.banner[k]] || S.banner[k]}`).join(' · ')}</div>
         <button class="btn sm" data-act="randBanner">Randomize</button>
       </div>
@@ -5467,7 +5587,7 @@ function draftCard(o, i) {
   const top = STATS.slice().sort((a, b) => p.stats[b] - p.stats[a]).slice(0, 3);
   return `<button class="draftcard" data-act="draftPick" data-i="${i}">
     <div class="row">${portrait(p, 'md')}<div class="grow" style="min-width:0"><div class="nm" style="font-family:var(--fh); font-weight:600">${esc(p.first)} "${esc(p.call)}" ${esc(p.last)}</div><div class="row wrap" style="gap:4px; margin-top:3px">${clsChip(p.cls)}<span class="chip">${p.arch}</span><span class="chip">Age ${p.age}</span></div></div>${ovrBadge(p.ovr)}</div>
-    <div class="row" style="gap:8px"><img src="${mechThumb(m, 30)}" width="44" height="44" alt=""><div class="small"><b>${ch.name}</b> · ${ch.wt} · ${FRAME_TYPES[frameOf(m).type].name} frame<div class="tiny muted">${m.modules.map(x => MODULES[x.k].name).join(', ')}</div></div></div>
+    <div class="row" style="gap:8px">${mechThumbEl(m, 44)}<div class="small"><b>${ch.name}</b> · ${ch.wt} · ${FRAME_TYPES[frameOf(m).type].name} frame<div class="tiny muted">${m.modules.map(x => MODULES[x.k].name).join(', ')}</div></div></div>
     <div class="small">Potential ${potStars(p.pot)}</div>
     ${top.map(k => `<div class="statrow"><span>${STAT_NAMES[k]}</span>${statCells(p.stats[k])}</div>`).join('')}
     ${p.perks.length ? `<div class="tiny good">Perk: ${PERKS.find(x => x.id === p.perks[0]).name}</div>` : ''}
@@ -5477,7 +5597,7 @@ function renderDraft() {
   const S = UI.setup;
   const counts = {}; for (const p of G.pilots) counts[p.cls] = (counts[p.cls] || 0) + 1;
   showFull(`<div class="setup">${steps(3)}<div class="row" style="justify-content:space-between"><h2>Draft · round ${S.round + 1} of 8</h2><span class="muted small">Pick one pilot and their mech</span></div>
-  <div class="grid4" style="margin-top:10px; grid-template-columns:repeat(${S.opts.length},minmax(0,1fr))">${S.opts.map(draftCard).join('')}</div>
+  <div class="draftgrid" style="margin-top:10px; --n:${S.opts.length}">${S.opts.map(draftCard).join('')}</div>
   <div class="panel" style="margin-top:12px"><div class="row wrap" style="justify-content:space-between"><h4>Your roster (${G.pilots.length}/8)</h4><div class="row wrap" style="gap:4px">${CLASS_KEYS.map(c => `<span class="chip cls c-${c}">${CLASSES[c].short} ${counts[c] || 0}</span>`).join('')}</div></div>
   <div class="row wrap" style="margin-top:8px">${G.pilots.map(p => `<div class="row" style="gap:6px">${portrait(p)}<div class="small"><b>${esc(p.call)}</b><div class="tiny muted">${CLASSES[p.cls].short} · ${ovrTxt(p.ovr)}</div></div></div>`).join('') || '<span class="muted small">No picks yet.</span>'}</div></div></div>`);
 }
@@ -5557,9 +5677,9 @@ function renderHQ() {
   }
   const st = standings(), pos = st.findIndex(r => r.me) + 1;
   const wages = alivePilots().reduce((s, p) => s + p.wage, 0) + G.mechs.reduce((s, m) => s + WEIGHTS[chassisOf(m).wt].upkeep, 0) + Object.values(G.facilities).reduce((s, l) => s + l * 60, 0);
-  return `<div class="page">${leaguePanel()}<div class="spacer"></div><div class="grid2" style="grid-template-columns:1fr 1fr 1fr">${squadCard('A')}${squadCard('B')}
+  return `<div class="page">${leaguePanel()}<div class="spacer"></div><div class="grid2 hqgrid">${squadCard('A')}${squadCard('B')}
   <div class="panel"><h3>Guild</h3><div class="small">League position <b>${pos} of ${st.length}</b> in the ${TIERS[G.tier]}</div><div class="small">Monthly costs about <b>${fmt(wages)}</b> (next payday day ${Math.ceil(G.day / 28) * 28 || 28})</div><div class="small">Pilots ${alivePilots().length}/${capacity()} · Mechs ${G.mechs.length}</div>${G.building ? `<div class="small">Building ${FACILITIES[G.building.k].name}: ${G.building.days} days left</div>` : ''}${G.credits < 0 ? `<div class="small bad">In debt. Four weeks past −5,000 ends the career.</div>` : ''}</div></div>
-  <div class="spacer"></div><div style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px">${days.join('')}</div>
+  <div class="spacer"></div><div class="weekgrid">${days.join('')}</div>
   <div class="spacer"></div><div class="panel"><h3>Guild log</h3><div class="list">${G.log.slice(0, 18).map(l => `<div class="small ${l.kind}"><span class="muted">S${l.s} D${l.d}</span> ${esc(l.txt)}</div>`).join('')}</div></div></div>`;
 }
 ACT.openExp = d => openExpedition(d.sq);
@@ -5630,12 +5750,12 @@ function pilotDetail(p) {
   const freeMechs = G.mechs.filter(x => !G.pilots.some(q => q.alive && q.mechId === x.id) || x.id === p.mechId);
   const sqCount = s => squadPilots(s).length, sqMax = 4 + reserveSlots();
   const mechWin = `<div class="mechwin">${m ? `<canvas id="rmech" data-id="${m.id}"></canvas><div class="mwlabel"><b>${chassisOf(m).name}</b> <span>${chassisOf(m).wt} ${CLASSES[chassisOf(m).cls].short}${m.wrecked ? ' · wrecked' : m.repair > 0 ? ' · repairing' : ''}</span></div>` : '<div class="mwempty">No mech assigned</div>'}</div>`;
-  return `<div class="panel"><div class="grid2" style="align-items:start"><div class="row" style="align-items:flex-start; gap:14px">${portrait(p, 'lg')}
+  return `<div class="panel"><div class="grid2 pdtop"><div class="row" style="align-items:flex-start; gap:14px">${portrait(p, 'lg')}
   <div class="col grow" style="gap:4px"><h2>${esc(p.first)} "${esc(p.call)}" ${esc(p.last)}</h2>
   <div class="row wrap" style="gap:4px">${clsChip(p.cls)}<span class="chip">${p.arch}</span><span class="chip">Age ${p.age}</span><span class="chip">Level ${p.level}</span>${statusChips(p)}</div>
   <div class="small muted">${ARCHETYPES[p.arch].desc}</div>
   <div class="row" style="gap:16px; margin-top:4px"><div><div class="tiny muted">Overall</div>${ovrBadge(p.ovr, '', 'display:inline-block')}</div><div><div class="tiny muted">Potential</div>${ovrBadge(p.pot, 'pot', 'display:inline-block')}<div>${potStars(p.pot)}</div></div><div><div class="tiny muted">Wage</div><b>${fmt(p.wage)}</b>/mo · ${p.contract} season${p.contract > 1 ? 's' : ''}</div></div></div></div>${mechWin}</div>
-  <div class="grid2" style="margin-top:12px"><div>
+  <div class="grid2 pdbody"><div>
     ${STATS.map(k => `<div class="statrow"><span>${STAT_NAMES[k]}</span>${statCells(p.stats[k])}</div>`).join('')}
     <div class="statrow" style="margin-top:6px"><span>XP</span>${bar(p.xp / (p.level * 80))}<span class="tiny">${p.xp}</span></div>
     <div class="statrow"><span>Morale</span>${bar(p.morale / 100, 'hp')}<span class="tiny">${moraleWord(p.morale)}</span></div>
@@ -5662,7 +5782,7 @@ ACT.release = d => {
 ACT.doRelease = d => { releasePilot(pilotById(d.id)); closeModal(); UI.sel.pilot = null; render(); };
 ACT.editRules = d => openSetup({ mode: 'rules', pilots: [pilotById(d.id)], back: () => { UI.full = null; hideFull(); render(); } });
 function renderFA() {
-  return `<p class="small muted">New free agents arrive every Monday. Pool size grows with your Scout Network. Capacity ${alivePilots().length}/${capacity()}.</p><div class="grid3">${G.fa.map((p, i) => `<div class="panel col" style="gap:6px"><div class="row">${portrait(p, 'md')}<div class="grow" style="min-width:0"><div style="font-family:var(--fh); font-weight:600">${esc(p.first)} "${esc(p.call)}" ${esc(p.last)}</div><div class="row wrap" style="gap:4px">${clsChip(p.cls)}<span class="chip">${p.arch}</span><span class="chip">Age ${p.age}</span></div></div>${ovrBadge(p.ovr)}</div>
+  return `<p class="small muted">New free agents arrive every Monday. Pool size grows with your Scout Network. Capacity ${alivePilots().length}/${capacity()}.</p><div class="fagrid">${G.fa.map((p, i) => `<div class="panel col" style="gap:6px"><div class="row">${portrait(p, 'md')}<div class="grow" style="min-width:0"><div style="font-family:var(--fh); font-weight:600">${esc(p.first)} "${esc(p.call)}" ${esc(p.last)}</div><div class="row wrap" style="gap:4px">${clsChip(p.cls)}<span class="chip">${p.arch}</span><span class="chip">Age ${p.age}</span></div></div>${ovrBadge(p.ovr)}</div>
   <div class="small">Potential ${potStars(p.potLo, p.potHi)} ${p.potLo === p.potHi ? ovrTxt(p.potLo) : ovrTxt(p.potLo) + '–' + ovrTxt(p.potHi)} · Asks <b>${fmt(p.ask)}</b>/mo</div>
   <div class="small">${p.ownMech ? `Brings a <b>${chassisOf(p.ownMech).name}</b> (${chassisOf(p.ownMech).wt})` : '<span class="warnc">No mech of their own</span>'}</div>
   ${STATS.slice().sort((a, b) => p.stats[b] - p.stats[a]).slice(0, 3).map(k => `<div class="statrow"><span>${STAT_NAMES[k]}</span>${statCells(p.stats[k])}</div>`).join('')}
@@ -5785,7 +5905,7 @@ function chassisCard(it, i) {
   const ch = CHASSIS.find(c => c.id === it.ch), W = WEIGHTS[ch.wt];
   const fake = { ch: ch.id, modules: DEFAULT_LOADOUT[ch.cls][ch.wt].map(k => ({ k, t: 1 })), frame: it.frame };
   const mb = mobilityOf(ch, it.frame);
-  return `<div class="panel mcard chassis" style="--mc:var(--amber)"><div class="row" style="gap:10px"><img src="${mechThumb(fake, 32)}" width="64" height="64" alt="" style="background:var(--panel2); border-radius:8px"><div class="grow" style="min-width:0"><div class="row" style="justify-content:space-between"><b class="mname">${ch.name}</b><span class="chip">${ch.wt}</span></div><div class="row" style="gap:5px; margin-top:2px">${clsChip(ch.cls)}${it.frame ? `<span class="chip">${FRAME_TYPES[it.frame.type].name} frame</span>` : ''}</div></div></div>
+  return `<div class="panel mcard chassis" style="--mc:var(--amber)"><div class="row" style="gap:10px">${mechThumbEl(fake, 64, 'background:var(--panel2); border-radius:8px')}<div class="grow" style="min-width:0"><div class="row" style="justify-content:space-between"><b class="mname">${ch.name}</b><span class="chip">${ch.wt}</span></div><div class="row" style="gap:5px; margin-top:2px">${clsChip(ch.cls)}${it.frame ? `<span class="chip">${FRAME_TYPES[it.frame.type].name} frame</span>` : ''}</div></div></div>
     <div class="mgrid"><div><span>Armor</span><b>${W.armor}</b></div><div><span>HP</span><b>${W.hp}</b></div><div><span>Speed</span><b>${mb.speed}</b></div><div><span>Mobility</span><b>${ovrTxt(mb.score)}</b></div><div><span>Reactor</span><b>${W.reactor}</b></div><div><span>Dash CD</span><b>${cdChip(BOOST[ch.wt].cd)}</b></div></div>
     <div class="row" style="gap:4px; margin-top:6px">${W.slots.map(s => `<span class="slotpip" style="--mc:${SLOT_META[s].c}" title="${SLOT_META[s].name} slot">${s}</span>`).join('')}<span class="tiny muted" style="margin-left:4px">module slots</span></div>
     <div class="small" style="margin-top:6px"><b>${SIGS[ch.sig].name}</b> <span class="muted">${SIGS[ch.sig].desc}</span></div>
@@ -5958,7 +6078,7 @@ function renderHangar() {
   let body = '';
   if (sub === 'mechs') {
     let sel = mechById(UI.sel.mech) || G.mechs[0];
-    body = `<div class="pane2"><div class="list">${G.mechs.map(m => { const ch = chassisOf(m), p = G.pilots.find(q => q.alive && q.mechId === m.id); return `<button class="card ${sel === m ? 'on' : ''}" data-act="selMech" data-id="${m.id}"><img src="${mechThumb(m, 22)}" width="44" height="44" alt=""><div class="meta"><div class="nm">${ch.name} <span class="small muted">${ch.wt} · ${FRAME_TYPES[frameOf(m).type].name} · Mob ${ovrTxt(mobilityOf(ch, frameOf(m)).score)}</span></div><div class="row wrap" style="gap:4px">${clsChip(ch.cls)}<span class="small muted">${p ? esc(p.call) : 'Unassigned'}</span>${m.wrecked ? '<span class="chip inj">Wrecked</span>' : m.repair > 0 ? `<span class="chip">Repair ${m.repair}d</span>` : ''}</div></div><div class="small">${Math.round(mechHpPct(m) * 100)}%</div></button>`; }).join('')}</div>
+    body = `<div class="pane2"><div class="list">${G.mechs.map(m => { const ch = chassisOf(m), p = G.pilots.find(q => q.alive && q.mechId === m.id); return `<button class="card ${sel === m ? 'on' : ''}" data-act="selMech" data-id="${m.id}">${mechThumbEl(m, 44)}<div class="meta"><div class="nm">${ch.name} <span class="small muted">${ch.wt} · ${FRAME_TYPES[frameOf(m).type].name} · Mob ${ovrTxt(mobilityOf(ch, frameOf(m)).score)}</span></div><div class="row wrap" style="gap:4px">${clsChip(ch.cls)}<span class="small muted">${p ? esc(p.call) : 'Unassigned'}</span>${m.wrecked ? '<span class="chip inj">Wrecked</span>' : m.repair > 0 ? `<span class="chip">Repair ${m.repair}d</span>` : ''}</div></div><div class="small">${Math.round(mechHpPct(m) * 100)}%</div></button>`; }).join('')}</div>
     <div>${sel ? mechDetail(sel) : '<p class="muted">No mechs. Buy one from the Market.</p>'}</div></div>`;
   } else if (sub === 'market') body = renderMarket();
   else if (sub === 'storage') body = renderStorage();
@@ -6057,7 +6177,7 @@ function renderPaint() {
   modal(`<div class="paintshop"><h2>Paint shop · ${esc(ch.name)}</h2>
   <div class="row" style="gap:16px; align-items:flex-start; flex-wrap:wrap">
     <div class="col" style="gap:8px; flex:none; align-items:center">
-      <canvas id="paintPrev" width="600" height="600" style="width:300px; height:300px; border-radius:12px; border:1px solid var(--line)"></canvas>
+      <canvas id="paintPrev" class="paintprev" width="600" height="600"></canvas>
       <div class="tiny muted" style="text-align:center">${P.guild ? 'Guild livery: follows your banner colors' : 'Custom livery'} · battle preview</div>
     </div>
     <div class="col grow" style="gap:6px; min-width:260px">
@@ -6091,7 +6211,7 @@ function mechDetail(m) {
   const away = p && p.away;
   const use = reactorUse(m);
   const dmg = m.dmg.body + m.dmg.arms + m.dmg.legs;
-  return `<div class="panel"><div class="row" style="gap:14px; align-items:flex-start"><img src="${mechThumb(m, 60)}" width="120" height="120" alt="${ch.name}" style="background:var(--panel2); border-radius:10px">
+  return `<div class="panel"><div class="row" style="gap:14px; align-items:flex-start">${mechThumbEl(m, 120, 'background:var(--panel2); border-radius:10px')}
   <div class="col grow" style="gap:4px"><h2>${ch.name}</h2><div class="row wrap" style="gap:4px">${clsChip(ch.cls)}<span class="chip">${ch.wt}</span><span class="chip">Armor ${W.armor}</span><span class="chip">Speed ${mobilityOf(ch, frameOf(m)).speed}</span></div>
   <div class="small"><b>${SIGS[ch.sig].name}</b> <span class="muted">${SIGS[ch.sig].desc}</span></div>
   <div class="small"><b>${frameName(frameOf(m))}</b> <span class="muted">${frameOf(m).serial || ''} · ${frameDesc(frameOf(m))}</span></div>
@@ -6133,7 +6253,7 @@ function renderOps() {
   if (sel) {
     const r = riskIndex(sel.lvl, tl);
     detail = `<div class="panel"><h2>${CONTRACT_TYPES[sel.type].name}</h2><p class="muted small">${CONTRACT_TYPES[sel.type].desc}.${sel.ace ? ` Target: <b>${esc(sel.ace)}</b>.` : ''}</p>
-    <div class="grid2 small"><div>Enemy: <b>${FACTIONS[sel.fac].name}</b><div class="tiny muted">${FACTIONS[sel.fac].desc}</div></div><div>Biome: <b>${BIOMES[sel.biome].name}</b></div>
+    <div class="grid2 small opsgrid"><div>Enemy: <b>${FACTIONS[sel.fac].name}</b><div class="tiny muted">${FACTIONS[sel.fac].desc}</div></div><div>Biome: <b>${BIOMES[sel.biome].name}</b></div>
     <div>Enemy level <b>${sel.lvl}</b> vs your team <b>${Math.round(tl)}</b></div><div>Risk <span class="chip risk-${r}">${RISKS[r]}</span> · ejection death chance ${Math.round(RISK_DEATH[r] * 100)}%</div>
     <div>Pay <b>${fmt(sel.pay)}</b> (+10% with no deaths)</div><div>Rep <b>+${RISK_REP[r]}</b></div>
     <div>Travel ${sel.travel}d each way · ${sel.nodes} nodes</div><div>Expires day ${sel.expires}</div></div>
@@ -6162,7 +6282,7 @@ function renderLeague() {
     <div class="row" style="gap:10px; margin:6px 0">${bannerSVG(G.banner, 30)}<b class="ovr">${s.wins}</b><span class="muted">vs</span><b class="ovr">${s.losses}</b>${bannerSVG(s.opp.banner, 30)}<div><b>${esc(s.opp.name)}</b><div class="tiny muted">Strength ${s.opp.str} · best of 3 · sanctioned rules</div></div></div>
     ${s.done ? `<p class="${s.won ? 'good' : 'bad'}"><b>${esc(s.outcome)}</b></p>` : can ? `<p class="small">Pick any four ready pilots. Sanctioned matches rarely kill, but repairs still cost.</p><button class="btn primary" data-act="seriesPick">Fight round ${s.wins + s.losses + 1}</button>` : `<p class="small muted">Series day is day ${SERIES_DAY}.</p>`}</div><div class="spacer"></div>`;
   }
-  return `<div class="page">${series}<div class="grid2" style="grid-template-columns:2fr 1fr"><div class="panel"><div class="row" style="justify-content:space-between"><h3>${TIERS[G.tier]} standings</h3><span class="small muted">Bracket set on day ${BRACKET_DAY}</span></div>
+  return `<div class="page">${series}<div class="grid2 leaguegrid"><div class="panel"><div class="row" style="justify-content:space-between"><h3>${TIERS[G.tier]} standings</h3><span class="small muted">Bracket set on day ${BRACKET_DAY}</span></div>
   <table class="t"><tr><th>#</th><th>Guild</th><th>Rep</th><th></th></tr>${st.map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td>${i + 1}</td><td><div class="row" style="gap:8px">${bannerSVG(r.banner, 18)}${esc(r.name)}</div></td><td>${r.rep}</td><td class="tiny ${i < 2 ? 'good' : i >= st.length - 2 ? 'bad' : 'muted'}">${i < 2 ? (G.tier === 5 ? 'Final' : 'Promotion') : i >= st.length - 2 ? 'Relegation' : ''}</td></tr>`).join('')}</table></div>
   <div class="panel"><h3>The ladder</h3>${TIERS.slice().reverse().map((t, i) => { const idx = TIERS.length - 1 - i; return `<div class="small" style="padding:5px 0; border-bottom:1px solid var(--line); ${idx === G.tier ? 'color:var(--amber); font-weight:600' : ''}">${idx + 1}. ${t}${idx === G.tier ? ' · you' : ''}</div>`; }).join('')}
   <p class="small muted" style="margin-top:8px">Earn Rep from expeditions. The top two qualify for promotion; the bottom two defend their place.</p>${G.champion ? '<p class="good"><b>Apex Champions</b></p>' : ''}</div></div></div>`;
@@ -6283,8 +6403,8 @@ function renderSetup2() {
   const goLabel = S.mode === 'deploy' ? 'Deploy squad' : S.mode === 'node' ? 'Engage' : S.mode === 'series' ? 'Start match' : 'Done';
   showFull(`<div class="setup" style="max-width:1200px; padding-top:12px">
   <div class="row" style="justify-content:space-between"><h2>${title}</h2><div class="row"><button class="btn ghost" data-act="suBack">${S.mode === 'rules' ? 'Close' : 'Back'}</button>${S.mode !== 'rules' ? `<button class="btn primary" data-act="suGo">${goLabel}</button>` : ''}</div></div>
-  <div class="row wrap" style="gap:6px; margin:8px 0">${S.pilots.map(q => `<button class="card ${q.id === S.sel ? 'on' : ''}" style="width:auto; padding:5px 10px 5px 5px" data-act="suSel" data-id="${q.id}">${portrait(q)}<div><div class="nm">${esc(q.call)}</div><div class="row" style="gap:4px">${clsChip(chassisOf(mechOf(q)).cls)}<span class="tiny muted">${Math.round(mechHpPct(mechOf(q)) * 100)}%</span></div></div></button>`).join('')}</div>
-  <div class="grid2" style="grid-template-columns:${S.mode === 'rules' ? '1fr' : 'minmax(260px,360px) 1fr'}; align-items:start">
+  <div class="row wrap supilots" style="gap:6px; margin:8px 0">${S.pilots.map(q =>`<button class="card ${q.id === S.sel ? 'on' : ''}" style="width:auto; padding:5px 10px 5px 5px" data-act="suSel" data-id="${q.id}">${portrait(q)}<div><div class="nm">${esc(q.call)}</div><div class="row" style="gap:4px">${clsChip(chassisOf(mechOf(q)).cls)}<span class="tiny muted">${Math.round(mechHpPct(mechOf(q)) * 100)}%</span></div></div></button>`).join('')}</div>
+  <div class="grid2 sugrid ${S.mode === 'rules' ? 'solo' : ''}">
   ${S.mode === 'rules' ? '' : `<div class="panel"><h3>Formation</h3><p class="small muted" style="margin:0 0 6px">Select a pilot, then tap a cell. The enemy is to the right.</p><div class="formation">${grid.join('')}</div>
   <div class="spacer"></div><h4>Doctrine</h4><div class="row" style="margin-top:4px">${['aggressive', 'balanced', 'defensive'].map(d => `<button class="btn sm ${doc === d ? 'primary' : ''}" data-act="suDoc" data-d="${d}">${d[0].toUpperCase() + d.slice(1)}</button>`).join('')}</div>
   <p class="tiny muted">${doc === 'aggressive' ? 'Closes distance: ranged mechs fight 20% closer.' : doc === 'defensive' ? 'Holds range: ranged mechs keep 12% more distance.' : 'Fights at each weapon\'s preferred range.'}</p>
@@ -6435,16 +6555,21 @@ function renderExpedition() {
     <div class="row" style="gap:6px"><button class="btn primary" data-act="expGo" ${fight && !fighters.length ? 'disabled' : ''}>${fight ? 'Prepare to engage' : sel.type === 'salvage' ? 'Search the wreckage' : 'Make camp'}</button><button class="btn ghost sm" data-act="expSel" data-id="">Cancel</button></div>`;
   }
   showFull(`<div class="setup" style="max-width:1240px; padding-top:14px">
-  <div class="exp-head"><div><div class="kick">Squad ${e.sq} · Contract in progress</div><h1 style="font-size:28px">${CONTRACT_TYPES[e.c.type].name}</h1>
+  <div class="exp-head"><div><div class="kick">Squad ${e.sq} · Contract in progress</div><h1 class="exp-title">${CONTRACT_TYPES[e.c.type].name}</h1>
     <div class="exp-meta"><span class="chip">${FACTIONS[e.c.fac].name}</span><span class="chip">${BIOMES[e.c.biome].name}</span><span class="chip risk-${e.risk}">${RISKS[e.risk]} risk</span><span class="chip">Pay ${fmt(e.c.pay)}</span><span class="chip">Salvage ${e.salvage}</span><span class="chip">Cleared ${cleared}/${e.layers.flat().length}</span></div></div>
     <div class="row"><button class="btn ghost" data-act="expClose">Back to HQ</button>${e.pending ? '<button class="btn danger" data-act="expExtract">Extract</button>' : ''}</div></div>
-  <div class="grid2" style="grid-template-columns:minmax(0,2.3fr) minmax(250px,1fr); margin-top:12px; align-items:start">
+  <div class="grid2 expgrid">
     <div><div class="sector">${svg}<div class="maptitle"><b>Sector map</b><span>${BIOMES[e.c.biome].name} · ${FACTIONS[e.c.fac].name}</span></div>${nodes}${pin}</div>
     <div class="nodelegend">${Object.keys(NODE_NAME).map(k => `<span><i>${nodeEmblem(k, e.c.fac)}</i>${NODE_NAME[k]}</span>`).join('')}<span><i>${nodeEmblem('', '', false)}</i>Unscouted</span></div></div>
     <div class="panel exp-side">${info}</div></div>
   <div class="spacer"></div><div class="panel"><h3>Deployed squad</h3><div class="squadstrip">${strip}</div></div></div>`);
 }
-ACT.expSel = d => { UI.expSel = d.id || null; renderExpedition(); };
+ACT.expSel = d => {
+  UI.expSel = d.id || null; renderExpedition();
+  // when the orders panel sits below the map (narrow screens), bring it into view so the action button is reachable
+  const s = UI.expSel && document.querySelector('.exp-side');
+  if (s && s.getBoundingClientRect().bottom > window.innerHeight) s.scrollIntoView({ block: 'end', behavior: 'smooth' });
+};
 ACT.expClose = () => { hideFull(); render(); };
 ACT.expExtract = () => modal(`<h2>Extract now?</h2><p>The squad heads home with half pay for the nodes cleared so far and a quarter of the rep.</p><div class="row" style="justify-content:flex-end"><button class="btn ghost" data-act="closeModal">Stay</button><button class="btn danger" data-act="doExtract">Extract</button></div>`);
 ACT.doExtract = () => { closeModal(); extractExpedition(G.exp[UI.expSq]); renderExpedition(); };
@@ -6624,8 +6749,8 @@ function renderDebrief() {
   showFull(`<div class="setup" style="max-width:1100px; padding-top:14px">
   <div class="row" style="justify-content:space-between"><h1 class="${res.win ? 'good' : 'bad'}">${res.win ? 'Victory' : res.timeout ? 'Stalemate' : 'Defeat'}</h1><button class="btn primary" data-act="debNext">Continue</button></div>
   <p class="muted">${res.kills} hostiles destroyed in ${Math.round(res.t)} seconds.</p>
-  <div class="grid2" style="grid-template-columns:1.3fr 1fr; align-items:start"><div class="panel"><table class="t"><tr><th>Pilot</th><th>Damage</th><th>Taken</th><th>Kills</th><th>Repaired</th><th title="Missiles dash-dodged / shot down">Dodge / PD</th><th>Status</th></tr>
-  ${res.units.map(u => { const p = pilotById(u.pilotId); return `<tr class="${u.pilotId === sel ? 'me' : ''}" data-act="debSel" data-id="${u.pilotId}" style="cursor:pointer"><td><div class="row" style="gap:6px">${p ? portrait(p, '', u.fate === 'kia' ? 'neutral' : res.win ? 'happy' : 'shaken') : ''}<b>${esc(u.label)}</b>${u.sigUsed ? ' <span class="chip tiny" style="color:var(--cyan)">Signature</span>' : ''}</div></td><td>${Math.round(u.st.dealt)}</td><td>${Math.round(u.st.taken)}</td><td>${u.st.kills}</td><td>${Math.round(u.st.healed)}</td><td>${u.st.dodges || 0} / ${u.st.intercepts || 0}</td><td>${fateChip(u)}</td></tr>`; }).join('')}</table>
+  <div class="grid2 debgrid"><div class="panel"><div class="tscroll"><table class="t"><tr><th>Pilot</th><th>Damage</th><th>Taken</th><th>Kills</th><th>Repaired</th><th title="Missiles dash-dodged / shot down">Dodge / PD</th><th>Status</th></tr>
+  ${res.units.map(u => { const p = pilotById(u.pilotId); return `<tr class="${u.pilotId === sel ? 'me' : ''}" data-act="debSel" data-id="${u.pilotId}" style="cursor:pointer"><td><div class="row" style="gap:6px">${p ? portrait(p, '', u.fate === 'kia' ? 'neutral' : res.win ? 'happy' : 'shaken') : ''}<b>${esc(u.label)}</b>${u.sigUsed ? ' <span class="chip tiny" style="color:var(--cyan)">Signature</span>' : ''}</div></td><td>${Math.round(u.st.dealt)}</td><td>${Math.round(u.st.taken)}</td><td>${u.st.kills}</td><td>${Math.round(u.st.healed)}</td><td>${u.st.dodges || 0} / ${u.st.intercepts || 0}</td><td>${fateChip(u)}</td></tr>`; }).join('')}</table></div>
   ${out.deaths.map(p => `<div class="panel" style="margin-top:10px; border-color:var(--danger)"><div class="row">${portrait(p, 'md', 'neutral')}<div><h3>${esc(pilotName(p))} was killed in action</h3><p class="small" style="margin:4px 0; font-style:italic">“${esc(p.lastWords)}”</p><div class="tiny muted">${p.battles} battles · ${p.kills} kills. Their name goes on the memorial wall.</div></div></div></div>`).join('')}
   ${out.injuries.length ? `<p class="small warnc" style="margin-top:8px">${out.injuries.map(p => `${esc(p.call)}: ${esc(p.injuryNote)}, ${Math.ceil(p.injury)} days`).join(' · ')}</p>` : ''}
   ${out.levelups.length ? `<p class="small good">${out.levelups.map(p => `${esc(p.call)} reached level ${p.level}`).join(' · ')}</p>` : ''}</div>
