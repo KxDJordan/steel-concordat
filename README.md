@@ -15,7 +15,7 @@ Landscape orientation is recommended on phones.
 - **Guild management**: two squads plus reserves, weekly training (rest, drill a stat, sim tactics, mentoring), facilities, market, free agents, contracts and a league season with promotion and relegation series.
 - **Pilots**: seven color-coded stats and overall ratings, perks, class specializations, morale and fatigue, and procedurally drawn portraits that wear the guild's colors once recruited.
 - **Mechs**: four weight classes with distinct speed, acceleration, turning and booster cooldowns, plus procedurally assembled humanoid frames (head, shoulders, chest, backpack, legs, trim).
-- **Weapons**: 22 types, including autocannon, gatling, pulse laser, scattergun, gauss rifle, railgun, beam lance, ion cannon, plasma cannon, arc caster, flamer, rockets, guided missiles, seeker swarms, mortar, chainblade, thunder hammer, plasma katana and pile bunker.
+- **Weapons**: 26 types, including autocannon, gatling, pulse laser, scattergun, gauss rifle, railgun, beam lance, ion cannon, plasma cannon, arc caster, flamer, rockets, guided missiles, seeker swarms, mortar, chainblade, thunder hammer, plasma katana and pile bunker, plus funnel racks: remote drones that launch from the mech's back to attack, dive through targets, shield allies or repair them.
 - **Combat AI**:
   - Missiles with different homing strengths, point-defense guns and booster dash-dodging.
   - Cover-seeking, and routing around walls and buildings.
