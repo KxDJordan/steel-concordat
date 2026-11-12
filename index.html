@@ -835,7 +835,7 @@ const PERKS = [
   { id: 'shieldtech', name: 'Shield Tech', desc: '+30% shield strength', cls: ['SUP', 'TNK'] },
   { id: 'disruptor', name: 'Disruptor', desc: '+35% stun duration', cls: ['CTL'] },
   { id: 'dancer', name: 'Missile Dancer', desc: '+15% dash-dodge vs missiles, shorter dodge cooldown', cls: ['MEL', 'CTL'] },
-  { id: 'combo', name: 'Combo Master', desc: 'Melee hits chain into fast follow-up swings with dashing footwork: up to 3 strikes ending in a heavy finisher (needs Melee 60+)', cls: ['MEL', 'TNK'], req: p => (p.stats && p.stats.melee >= 60) },
+  { id: 'combo', name: 'Combo Master', desc: 'Melee strings run their full length with faster cancels and end in a launching finisher (wall splats hurt); Melee 78+ adds an extra hit (needs Melee 60+)', cls: ['MEL', 'TNK'], req: p => (p.stats && p.stats.melee >= 60) },
   { id: 'adrenal', name: 'Adrenal Sync', desc: 'Ability gauge fills 30% faster', cls: ['MEL', 'CTL', 'LR', 'SUP', 'TNK'] },
 ];
 const SPECS = {
@@ -2022,6 +2022,47 @@ function muzzle(u, w) {
 // weapon swing motion (drawn): sweep from outside (a0) across the front (a1) by the 'hit' fraction, then recover.
 // Swings alternate forehand/backhand; the pile bunker thrusts instead of sweeping.
 const MELEE_SWING = { blade: { dur: 0.26, hit: 0.55, a0: 1.2, a1: -1.0 }, katana: { dur: 0.2, hit: 0.5, a0: 1.4, a1: -1.2 }, hammer: { dur: 0.36, hit: 0.6, a0: 1.6, a1: -0.7 }, lance: { dur: 0.22, thrust: 0.45 } };
+// ---------- melee combo strings ----------
+// Every melee weapon family knows 2-3 named strings. A step is its own move: an = animation (arc | thrust | draw | rise | spin |
+// over | grind), su = startup before the blow lands, dur = animation length, rec = cancel window before the next step, dm/kb =
+// damage/knockback x, hs = hitstun (s, before the target's weight), rch = extra reach, lg = lunge, sw = trail arc (rad),
+// a0/a1 = blade sweep, dir -1 = backhand, hits = grinding multi-hit, aoe = shockwave radius, cleave = spin hits all around,
+// thru = charge through the target, fin = finisher (launches the target; Combo Master only).
+// Plain melee pilots throw the first 1-2 steps; Combo Master runs the whole string with faster cancels, and at Melee 78+ adds an extra hit.
+const MS = (an, o) => ({ an, su: 0.09, dur: 0.26, rec: 0.22, dm: 1, kb: 0.6, hs: 0.22, rch: 0, sw: 1.3, a0: 1.2, a1: -1.0, dir: 1, ...o });
+const MELEE_STRINGS = {
+  blade: [
+    { n: 'Cross Rend', s: [MS('arc', { dm: 0.8 }), MS('arc', { dir: -1, dm: 0.85, hs: 0.24 }), MS('thrust', { su: 0.12, dur: 0.28, dm: 1.35, kb: 1.4, hs: 0.3, rch: 14, lg: 360, fin: 1 })] },
+    { n: 'Whirlwind', s: [MS('arc', { dm: 0.85, a0: 1.4, a1: -1.2 }), MS('spin', { su: 0.16, dur: 0.42, dm: 1.3, kb: 1.2, hs: 0.3, sw: 5.6, cleave: 1, fin: 1 })] },
+    { n: 'Rising Edge', s: [MS('arc', { dm: 0.8, a0: 0.9, a1: -0.7, sw: 1.0 }), MS('rise', { su: 0.12, dur: 0.32, dm: 1.25, kb: 1.3, hs: 0.32, sw: 2.2, fin: 1 })] },
+  ],
+  katana: [
+    { n: 'Iaido', s: [MS('draw', { su: 0.06, dur: 0.22, rec: 0.18, dm: 1.0, kb: 0.4, hs: 0.2, sw: 2.3, lg: 340 }), MS('arc', { su: 0.07, dur: 0.2, rec: 0.18, dir: -1, dm: 0.85, kb: 0.4, hs: 0.2, a0: 1.4, a1: -1.3 }), MS('rise', { su: 0.1, dur: 0.28, dm: 1.3, kb: 2.2, hs: 0.3, sw: 2.4, fin: 1 })] },
+    { n: 'Petal Storm', s: [MS('arc', { su: 0.07, dur: 0.18, rec: 0.15, dm: 0.7, kb: 0.3, hs: 0.18, a0: 1.4, a1: -1.2 }), MS('arc', { su: 0.07, dur: 0.18, rec: 0.15, dir: -1, dm: 0.7, kb: 0.3, hs: 0.18, a0: 1.4, a1: -1.2 }), MS('arc', { su: 0.07, dur: 0.18, rec: 0.15, dm: 0.7, kb: 0.3, hs: 0.18, a0: 1.0, a1: -1.4 }), MS('thrust', { su: 0.09, dur: 0.24, dm: 1.2, kb: 2, hs: 0.28, rch: 12, lg: 380, fin: 1 })] },
+    { n: 'Crescent Moon', s: [MS('draw', { su: 0.06, dur: 0.22, rec: 0.2, dm: 1.0, kb: 0.4, hs: 0.2, sw: 2.3, lg: 340 }), MS('spin', { su: 0.12, dur: 0.34, dm: 1.2, kb: 1.8, hs: 0.28, sw: 5.8, cleave: 1, fin: 1 })] },
+  ],
+  hammer: [
+    { n: 'Quake', s: [MS('over', { su: 0.2, dur: 0.42, rec: 0.4, dm: 0.8, kb: 0.6, hs: 0.35, sw: 0.9 }), MS('over', { su: 0.24, dur: 0.46, dm: 1.1, kb: 1.0, hs: 0.4, sw: 0.9, aoe: 95, fin: 1 })] },
+    { n: 'Pendulum', s: [MS('arc', { su: 0.18, dur: 0.4, rec: 0.36, dm: 0.75, kb: 0.8, hs: 0.3, a0: 1.7, a1: -0.9, sw: 1.8 }), MS('arc', { su: 0.18, dur: 0.4, rec: 0.36, dir: -1, dm: 0.75, kb: 0.8, hs: 0.3, a0: 1.7, a1: -0.9, sw: 1.8 }), MS('over', { su: 0.22, dur: 0.46, dm: 1.15, kb: 1.1, hs: 0.4, sw: 0.9, aoe: 75, fin: 1 })] },
+  ],
+  lance: [
+    { n: 'Breach', s: [MS('thrust', { su: 0.12, dur: 0.24, rec: 0.36, dm: 0.6, kb: 0.6, hs: 0.3, sw: 0.35 }), MS('thrust', { su: 0.1, dur: 0.34, dm: 1.1, kb: 1.3, hs: 0.35, sw: 0.35, rch: 18, lg: 560, thru: 1, fin: 1 })] },
+    { n: 'Twin Spike', s: [MS('thrust', { su: 0.12, dur: 0.24, rec: 0.3, dm: 0.55, kb: 0.5, hs: 0.28, sw: 0.35 }), MS('thrust', { su: 0.1, dur: 0.24, rec: 0.3, dm: 0.55, kb: 0.5, hs: 0.28, sw: 0.35 }), MS('thrust', { su: 0.14, dur: 0.3, dm: 1.0, kb: 1.4, hs: 0.35, sw: 0.35, rch: 10, fin: 1 })] },
+  ],
+  chain: [
+    { n: 'Grinder', s: [MS('arc', { su: 0.08, dur: 0.24, rec: 0.2, dm: 0.75, kb: 0.4 }), MS('grind', { su: 0.1, dur: 0.46, rec: 0.26, dm: 1.15, kb: 0.15, hs: 0.42, hits: 4, sw: 0.5 }), MS('arc', { su: 0.1, dur: 0.28, dir: -1, dm: 0.9, kb: 1.6, hs: 0.3, a0: 1.5, a1: -1.2, sw: 1.6, fin: 1 })] },
+    { n: 'Rip Saw', s: [MS('grind', { su: 0.1, dur: 0.42, rec: 0.24, dm: 1.0, kb: 0.15, hs: 0.38, hits: 3, sw: 0.5, lg: 320 }), MS('rise', { su: 0.11, dur: 0.3, dm: 1.05, kb: 1.4, hs: 0.3, sw: 2.0, fin: 1 })] },
+  ],
+};
+const MELEE_FAM = { katana: 'katana', hammer: 'hammer', lance: 'lance', chainblade: 'chain', vibro: 'blade' };
+const meleeFam = w => MELEE_FAM[w.k] || MELEE_FAM[w.T.mv] || 'blade';
+const meleeFamT = T => meleeFam({ k: Object.keys(MODULES).find(x => MODULES[x] === T), T });
+// melee tuning (from headless melee-vs-ranged batches): string damage scale, end-of-string recovery (x weapon reload),
+// bullet evasion while dashing on melee footwork and while on the run-in
+const MELEE_K = { dmg: 1.9, rec: 0.65, dashEva: 0.25, runEva: 0.15 };
+const MELEE_LUNGE = { blade: 280, katana: 300, hammer: 260, lance: 380, chain: 270 };
+// circling footwork dashes between strikes: impulse and cooldown by weight
+const CIRCLE_DASH = { Light: [340, 0.45], Medium: [300, 0.6], Heavy: [250, 0.85], Assault: [200, 1.2] };
 // slash-trail colours follow the weapon: energy blades trail their blade light; the chainblade trails the mech's paint
 const MELEE_TRAIL = { katana: ['#4FC3F7', '#E6F7FF'], vibro: ['#5AB8FF', '#E0F4FF'] };
 function meleeTrail(u, w) {
@@ -2038,10 +2079,12 @@ const MELEE_STYLE = {
 };
 function meleeMove(B, u, t) {
   const S = MELEE_STYLE[u.wt] || MELEE_STYLE.Medium;
-  const mm = u.mm || (u.mm = { st: 'approach', t: 0, dir: u.id % 2 ? 1 : -1, flipT: B.rng.range(S.flip[0], S.flip[1]) });
-  if (mm.tgt !== t) { mm.tgt = t; mm.st = 'approach'; }
-  mm.t -= DT; mm.flipT -= DT;
-  if (mm.flipT <= 0) { mm.flipT = B.rng.range(S.flip[0], S.flip[1]); if (B.rng() < 0.55) mm.dir *= -1; }
+  const mm = u.mm || (u.mm = { st: 'approach', t: 0, dir: u.id % 2 ? 1 : -1, flipT: B.rng.range(S.flip[0], S.flip[1]), zz: 1, zzT: 0, sideT: 0 });
+  if (mm.tgt !== t) { mm.tgt = t; mm.st = 'approach'; mm.sideT = 0; }
+  mm.t -= DT; mm.flipT -= DT; mm.sideT -= DT; mm.zzT -= DT;
+  // circle toward the side that keeps the target (or cover) between us and the other shooters; random flips only on a tie
+  if (mm.sideT <= 0) { mm.sideT = 0.35; const sd = meleeSide(B, u, t); if (sd) mm.dir = sd; }
+  if (mm.flipT <= 0) { mm.flipT = B.rng.range(S.flip[0], S.flip[1]); if (!mm.safe && B.rng() < 0.55) mm.dir *= -1; }
   const mw = u.weapons.filter(w => !w.broken && w.T.kind === 'melee');
   const reachW = Math.max(...mw.map(w => w.T.range));
   const ring = u.r + t.r + reachW * 0.75 + (u.id % 3) * 12, d = dist(u, t), bear = Math.atan2(u.y - t.y, u.x - t.x);
@@ -2051,7 +2094,7 @@ function meleeMove(B, u, t) {
   if (mm.hit) {
     mm.hit = false;
     if (B.rng() < S.dis) {
-      mm.st = 'disengage'; mm.t = B.rng.range(S.disT[0], S.disT[1]); if (B.rng() < 0.4) mm.dir *= -1;
+      mm.st = 'disengage'; mm.t = B.rng.range(S.disT[0], S.disT[1]); if (!mm.safe && B.rng() < 0.4) mm.dir *= -1;
       const away = bear + mm.dir * B.rng.range(0.5, 1.0);
       mm.away = away;
       if (u.dodge && u.dodge.cdT <= 0 && B.rng() < S.hop) boostDash(B, u, away, 'juke', 0.85);
@@ -2064,11 +2107,19 @@ function meleeMove(B, u, t) {
   if (mm.st === 'approach') {
     if (d < ring + 60) { mm.st = ready ? 'strike' : 'orbit'; mm.t = B.rng.range(0.4, 1.0); }
     else {
-      // arc in toward the target's flank instead of running straight at it
+      // arc in toward the target's flank instead of running straight at it, zig-zagging so shooters have to keep re-aiming
       const flank = (t.aim || 0) + Math.PI + mm.dir * 1.0;
       const k = clamp((d - ring) / 400, 0, 1) * 0.45 * (0.4 + S.orbit);
-      const a = bear + clamp(angDiff(bear, flank), -1.2, 1.2) * k + mm.dir * 0.35 * S.orbit;
-      return at(a, Math.max(ring, d - 120));
+      if (mm.zzT <= 0) {
+        mm.zzT = B.rng.range(0.32, 0.6) / (0.5 + S.step * 0.6); mm.zz = -mm.zz;
+        // agile frames punctuate the zig-zag with a booster side-hop while still out of reach
+        if (u.dodge && u.dodge.cdT <= 0 && d > 200 && d < 520 && B.rng() < S.hop * 0.45) boostDash(B, u, Math.atan2(t.y - u.y, t.x - u.x) + mm.zz * 1.05, 'juke', 0.7);
+      }
+      const zig = mm.zz * clamp((d - ring) / 260, 0, 1) * 0.5 * (0.35 + S.step);
+      const a = bear + clamp(angDiff(bear, flank), -1.2, 1.2) * k + mm.dir * 0.35 * S.orbit + zig, R = Math.max(ring, d - 120);
+      // bend the run-in through cover: pick the lane that the fewest enemy guns can see
+      if ((mm.laneT = (mm.laneT || 0) - DT) <= 0) { mm.laneT = 0.35; mm.lane = meleeLane(B, u, t, a, R); }
+      return at(a + (mm.lane || 0), R);
     }
   }
   if (mm.st === 'orbit') {
@@ -2080,12 +2131,177 @@ function meleeMove(B, u, t) {
   if (mm.t <= 0 && !ready) { mm.st = 'orbit'; mm.t = B.rng.range(0.3, 0.8); }
   return { x: t.x, y: t.y, move: true };
 }
-function meleeKnock(B, u, t, a, T, w) {
-  const kb = (T.knock || 120) * (1 + 0.1 * ((w && w.tm ? w.tm : 1) - 1)) * (0.75 + 0.25 * Math.sqrt(u.mass)) / Math.pow(t.mass, 0.7) * (t.boss ? 0.5 : 1) * (t.bulwark > 0 ? 0.4 : 1);
+function meleeKnock(B, u, t, a, T, w, mul = 1) {
+  const kb = (T.knock || 120) * mul * (1 + 0.1 * ((w && w.tm ? w.tm : 1) - 1)) * (0.75 + 0.25 * Math.sqrt(u.mass)) / Math.pow(t.mass, 0.7) * (t.boss ? 0.5 : 1) * (t.bulwark > 0 ? 0.4 : 1);
   t.vx += Math.cos(a) * kb; t.vy += Math.sin(a) * kb;
-  const st = (T.stagger || 0) * (t.boss ? 0.5 : 1) / Math.sqrt(t.mass);
+  const st = (T.stagger || 0) * Math.min(1.3, mul) * (t.boss ? 0.5 : 1) / Math.sqrt(t.mass);
   if (st > 0) { t.stagger = Math.max(t.stagger || 0, st); t.knockSrc = u; t.knockT = 0.5; }
   if (B.fx && kb > 140) B.fx.knock(t, a, kb);
+  return kb;
+}
+// Hitstun: a clean melee hit freezes the target's guns, aim and footing for a moment. Heavier frames shrug it off faster.
+// No stunlocks: each hit in a juggle stuns less, the 6th hit in a row breaks free, and a finished string grants a short resistance.
+function applyHitstun(B, t, hs, src) {
+  if (!(hs > 0) || !t.alive) return 0;
+  if (B.t - (t.hsLast ?? -9) > 0.9) t.hsN = 0;
+  t.hsLast = B.t;
+  if ((t.hsN || 0) >= 5) { t.hsN = 0; t.hsRes = 1.6; t.hs = Math.min(t.hs || 0, 0.05); if (B.fx) B.fx.breakFree(t); return 0; }
+  const h = hs / Math.sqrt(t.mass) * Math.pow(0.72, t.hsN || 0) * (t.boss ? 0.4 : 1) * (t.hsRes > 0 ? 0.35 : 1) * (t.bulwark > 0 ? 0.5 : 1);
+  t.hsN = (t.hsN || 0) + 1;
+  t.hs = Math.max(t.hs || 0, h);
+  // interrupted: windups and charged shots are lost
+  if (t.weapons) for (const w of t.weapons) { if (w.atk) { w.atk = null; meleeEnd(B, t, w, true); } if (w.charge > 0) w.charge = 0; if (w.beamT > 0) { w.beamT = 0; w.beam = null; w.cd = w.T.reload * 0.5; } }
+  return h;
+}
+// which way to circle the target: the side where the fewest other enemy guns can see us (the target's own body and cover
+// count as shields), leaning toward the target's back. Sets mm.safe when one side is clearly better.
+function meleeSide(B, u, t) {
+  const R = u.r + t.r + 50, bear = Math.atan2(u.y - t.y, u.x - t.x), back = (t.aim || 0) + Math.PI, sc = [0, 0];
+  const shooters = B.units.filter(e => e.alive && e.team !== u.team && e !== t && e.kind === 'mech' && e.x < AW + 10 && e.weapons.some(needsLos));
+  [-1, 1].forEach((sd, i) => {
+    const a = bear + sd * 1.15, p = { x: clamp(t.x + Math.cos(a) * R, u.r, AW - u.r), y: clamp(t.y + Math.sin(a) * R, u.r, AH - u.r) };
+    for (const e of shooters) {
+      if (dist(e, p) > wRange(e) + 40) continue;
+      if (segCircle(e.x, e.y, p.x, p.y, t.x, t.y, t.r * 0.95) || losBlocked(B, e, p)) continue;
+      sc[i] += e.target === u ? 1.5 : 1;
+    }
+    sc[i] += 0.5 * Math.abs(angDiff(a, back)) / Math.PI + (nearObstacle(B, p.x, p.y, u.r) || inCorner({ x: p.x, y: p.y, r: u.r }, 30) ? 0.8 : 0);
+  });
+  const mm = u.mm, cur = mm ? (mm.dir > 0 ? 1 : 0) : 0;
+  sc[cur] -= 0.25; // hysteresis: don't dither between sides
+  if (mm) mm.safe = Math.abs(sc[0] - sc[1]) > 0.45;
+  return sc[0] < sc[1] ? -1 : 1;
+}
+function meleeLane(B, u, t, a, R) {
+  const shooters = B.units.filter(e => e.alive && e.team !== u.team && e.kind === 'mech' && e.x < AW + 10 && e.weapons.some(needsLos));
+  let best = 0, bs = 1e9;
+  for (const off of [0, -0.45, 0.45]) {
+    const p = { x: t.x + Math.cos(a + off) * R, y: t.y + Math.sin(a + off) * R }; if (p.x < u.r || p.x > AW - u.r || p.y < u.r || p.y > AH - u.r) continue;
+    let sc = Math.abs(off) * 0.6 + (nearObstacle(B, p.x, p.y, u.r) ? 1 : 0);
+    for (const e of shooters) if (dist(e, p) < wRange(e) + 40 && !losBlocked(B, e, p)) sc += e.target === u ? 1.3 : 1;
+    if (sc < bs) { bs = sc; best = off; }
+  }
+  return best;
+}
+// between strikes: a booster side-step around the target toward its flank, on the safer side
+function meleeCircle(B, u, t) {
+  if (!u.mm || (u.cdashT || 0) > 0 || u.stun > 0 || u.overheat > 0) return;
+  const D = CIRCLE_DASH[u.wt] || CIRCLE_DASH.Medium, sd = meleeSide(B, u, t); u.mm.dir = sd; u.mm.sideT = 0.35;
+  const bear = Math.atan2(u.y - t.y, u.x - t.x), a = bear + sd * (Math.PI / 2 + 0.3); // tangent, curling in toward the target
+  const nx = u.x + Math.cos(a) * 70, ny = u.y + Math.sin(a) * 70;
+  if (nx < u.r + 20 || nx > AW - u.r - 20 || ny < u.r + 20 || ny > AH - u.r - 20 || nearObstacle(B, nx, ny, u.r)) return;
+  const imp = D[0] * (u.max.legs ? 0.6 + 0.4 * u.hp.legs / u.max.legs : 1);
+  u.vx = u.vx * 0.3 + Math.cos(a) * imp; u.vy = u.vy * 0.3 + Math.sin(a) * imp; u.dashT = Math.max(u.dashT || 0, 0.2); u.cdashT = D[1];
+  if (B.fx) B.fx.boost(u, a, 'circle');
+}
+// a launched target slamming into cover or the arena wall takes bonus damage and a fresh stagger
+function wallSplat(B, a, x, y, v, nx, ny) {
+  const src = a.knockSrc; a.launchT = 0; a.knockT = 0;
+  damage(B, src, a, Math.min(45, (a.splatDmg || 15) * clamp(v / 300, 0.5, 1.2)), 'melee', { x, y });
+  applyHitstun(B, a, 0.35, src); a.stagger = Math.max(a.stagger || 0, 0.3);
+  if (B.fx) B.fx.wallSplat(x, y, Math.atan2(ny, nx), v);
+}
+// ---------- melee strings: start a step, land it, end the string ----------
+function meleeEnd(B, u, w, drop) {
+  const cs = w.cs; if (!cs) return;
+  w.cs = null; w.atk = null;
+  const T = w.T; w.cd = (T.reload * MELEE_K.rec * u.mods.reload * (u.over > 0 ? 0.4 : 1) * (drop ? (cs.i > 0 ? 1.15 : 1) / MELEE_K.rec : 1)); // whiffed or broken strings recover slower
+  if (cs.tgt && cs.tgt.alive && cs.hits > 1) { cs.tgt.hsRes = Math.max(cs.tgt.hsRes || 0, 1.0); cs.tgt.hsN = 0; } // string over: they get a breather
+  if (u.mm && cs.hits) u.mm.hit = true;
+}
+function meleeStart(B, u, w, t) {
+  const T = w.T, fam = meleeFam(w), list = MELEE_STRINGS[fam], combo = u.perks && u.perks.has('combo');
+  // pick a string: sweeping finishers are favoured when the target has company
+  const crowd = B.units.filter(e => e.alive && e.team !== u.team && e !== t && dist(e, t) < 120).length;
+  const wts = list.map(S => (crowd && S.s.some(s => s.cleave || s.aoe) ? 2.2 : 1));
+  let r = B.rng() * wts.reduce((a, b) => a + b, 0), S = list[0];
+  for (let i = 0; i < list.length; i++) { r -= wts[i]; if (r <= 0) { S = list[i]; break; } }
+  let steps = S.s.slice();
+  const mel = u.stats ? u.stats.melee : 50;
+  if (!combo) steps = steps.slice(0, mel >= 50 ? 2 : 1).map(s => s.fin ? { ...s, fin: 0, kb: s.kb * 0.8 } : s);
+  else if (mel >= 78 && steps.length > 1) steps.splice(1, 0, { ...steps[0], dir: -steps[0].dir, dm: steps[0].dm * 0.85 });
+  w.cs = { S, steps, i: 0, tgt: t, combo, hits: 0 };
+}
+function meleeAttack(B, u, w, t) {
+  const T = w.T;
+  if (w.atk) { // a blow in its windup: it lands when the startup runs out
+    const k = w.atk;
+    if (!k.tgt.alive) { w.atk = null; meleeEnd(B, u, w, false); return; }
+    if ((k.t -= DT) <= 0) { w.atk = null; meleeResolve(B, u, w, k); }
+    return;
+  }
+  if (w.cs && ((w.comboT -= DT) <= 0 || w.cs.tgt !== t || !t || !t.alive)) meleeEnd(B, u, w, !w.cs.hits); // string window ran out (or the target changed)
+  if (!t || !t.alive || w.cd > 0) return;
+  const d = dist(u, t), cs0 = w.cs, inStr = !!cs0;
+  const st0 = inStr ? cs0.steps[cs0.i] : null, reach = u.r + t.r + T.range + (st0 ? st0.rch : 0);
+  if (d > reach + (inStr ? 85 : 30) || !aimedAt(u, t, inStr ? 1.1 : 0.6)) return;
+  if (!inStr) meleeStart(B, u, w, t);
+  const cs = w.cs, st = cs.steps[cs.i], fam = meleeFam(w);
+  const a = Math.atan2(t.y - u.y, t.x - u.x), lg = (st.lg || MELEE_LUNGE[fam]) * (cs.i ? 0.75 : 1);
+  u.vx += Math.cos(a) * lg; u.vy += Math.sin(a) * lg;
+  if (st.thru) { u.dashT = Math.max(u.dashT || 0, 0.3); u.passT = 0.35; }
+  w.swingDir = (w.mount % 2 === 0 ? 1 : -1) * st.dir; w.swingT = st.dur; w.swA = st;
+  w.atk = { st, t: st.su * (u.over > 0 ? 0.7 : 1), tgt: t };
+  w.cd = 9; // the step's recovery is set when the blow resolves
+  u.heat += T.heat * (cs.i ? 0.5 : 1);
+}
+function meleeResolve(B, u, w, k) {
+  const T = w.T, t = k.tgt, st = k.st, cs = w.cs, fam = meleeFam(w);
+  if (!cs) { w.cd = T.reload * u.mods.reload; return; }
+  const d = dist(u, t), a = Math.atan2(t.y - u.y, t.x - u.x), reach = u.r + t.r + T.range + st.rch;
+  // clash: both fighters' blows meet mid-swing -> sparks, both knocked apart, both strings broken
+  const ow = t.weapons && t.weapons.find(x => x.atk && x.atk.tgt === u && x.atk.t < 0.12);
+  if (ow && d < reach + 20) {
+    ow.atk = null;
+    for (const [p, q, ww] of [[u, t, w], [t, u, ow]]) {
+      const ca = Math.atan2(p.y - q.y, p.x - q.x), imp = 300 / Math.sqrt(p.mass);
+      p.vx += Math.cos(ca) * imp; p.vy += Math.sin(ca) * imp; p.hs = Math.max(p.hs || 0, 0.15); p.stagger = Math.max(p.stagger || 0, 0.15);
+      meleeEnd(B, p, ww, false); ww.cd = Math.max(0.35, Math.min(ww.cd, 0.6));
+    }
+    if (B.fx) B.fx.clash((u.x + t.x) / 2, (u.y + t.y) / 2, a);
+    return;
+  }
+  const landed = d <= reach + 40 && B.rng() < clamp(u.meleeSkill - t.eva * 0.6 + (fam === 'katana' ? 0.06 : fam === 'hammer' ? -0.05 : 0) + (cs.i ? 0.05 : 0) + (t.hs > 0 ? 0.2 : 0), 0.25, 0.97);
+  if (B.fx) B.fx.slash(u, t, landed, T.mv, w, st);
+  if (!landed) { meleeEnd(B, u, w, true); return; }
+  cs.hits++;
+  const fin = st.fin && cs.combo && cs.i === cs.steps.length - 1;
+  const hx = (u.x + t.x) / 2, hy = (u.y + t.y) / 2;
+  // flanking: blows landed on the target's side or back hit harder (circling pays off)
+  const off = Math.abs(angDiff(t.aim || 0, a)), flank = t.kind === 'mech' ? (off < 1.0 ? 1.35 : off < 1.9 ? 1.15 : 1) : 1;
+  const dmg = T.dmg * w.tm * flank * st.dm * MELEE_K.dmg;
+  if (st.hits > 1) for (let i = 0; i < st.hits; i++) damage(B, u, t, dmg / st.hits, 'melee', { x: hx, y: hy, ap: T.ap || 0 });
+  else damage(B, u, t, dmg, 'melee', { x: hx, y: hy, ap: T.ap || 0 });
+  if (flank > 1 && B.fx) B.fx.flank(t, flank > 1.2);
+  meleeKnock(B, u, t, a, T, w, st.kb);
+  applyHitstun(B, t, st.hs, u);
+  // sweeping steps: the spin cleaves everyone in reach, the ground-pound sends a shockwave out from the target
+  if (st.cleave || st.aoe) for (const e of B.units) {
+    if (!e.alive || e.team === u.team || e === t) continue;
+    const R = st.aoe ? st.aoe + e.r : reach + 10, from = st.aoe ? t : u;
+    if (dist(e, from) > R) continue;
+    damage(B, u, e, dmg * (st.aoe ? 0.5 : 0.6), 'melee', e);
+    const ea = Math.atan2(e.y - from.y, e.x - from.x), ki = (st.aoe ? 220 : 160) / Math.pow(e.mass, 0.7);
+    e.vx += Math.cos(ea) * ki; e.vy += Math.sin(ea) * ki; applyHitstun(B, e, st.hs * 0.6, u);
+  }
+  if (fam === 'hammer') t.stun = Math.max(t.stun, (st.aoe ? 0.4 : 0.2) * (t.boss ? 0.5 : 1));
+  if (st.aoe && B.fx) B.fx.quake(t.x, t.y, st.aoe);
+  if (fin) { // finisher: launch them sliding; slamming into cover or the arena wall hurts (wall splat)
+    const L = (200 + (T.knock || 120) * 0.4) / Math.pow(t.mass, 0.7) * (t.boss ? 0.5 : 1) * (t.bulwark > 0 ? 0.4 : 1);
+    t.vx += Math.cos(a) * L; t.vy += Math.sin(a) * L;
+    t.stagger = Math.max(t.stagger || 0, 0.45); t.launchT = 0.6; t.knockSrc = u; t.knockT = 0.6; t.splatDmg = T.dmg * w.tm * 0.5;
+    if (B.fx) { B.fx.shake += 3; B.fx.finisher(t, a); }
+  }
+  if (st.thru) { // charge-through: carry on past the target's shoulder
+    const pa = a + (w.mount % 2 === 0 ? 0.5 : -0.5); u.vx = Math.cos(pa) * 520; u.vy = Math.sin(pa) * 520; u.dashT = Math.max(u.dashT || 0, 0.3); u.passT = 0.35;
+  } else { // follow-through: the attacker rebounds a little so fighters separate instead of grinding face to face
+    const rb = (fam === 'hammer' || fam === 'lance' ? 170 : 110) / Math.sqrt(u.mass); u.vx -= Math.cos(a) * rb * 0.6; u.vy -= Math.sin(a) * rb * 0.6;
+  }
+  if (cs.hits > 1 && B.fx) B.fx.combo(u, cs.hits, fin ? cs.S.n : null);
+  if (cs.i < cs.steps.length - 1 && t.alive) { // cancel into the next step, side-stepping round the target first
+    cs.i++; w.cd = st.rec * (cs.combo ? 0.8 : 1); w.comboT = w.cd + 0.55;
+    if (!st.thru) meleeCircle(B, u, t);
+  } else meleeEnd(B, u, w, false);
 }
 function shoot(B, u, m, a, T, w, range) {
   const sp = T.speed * (T.pellets ? B.rng.range(0.85, 1.1) : 1);
@@ -2113,7 +2329,8 @@ function launchMissile(B, u, x, y, t, T, dmg, aoe, age) {
 }
 function aimedAt(u, t, tol) { return Math.abs(angDiff(u.aim, Math.atan2(t.y - u.y, t.x - u.x))) < tol; }
 function fireWeapons(B, u, t) {
-  if (u.overheat > 0 || u.stun > 0 || !u.entered) return;
+  if (u.stun > 0 || u.hs > 0) for (const w of u.weapons) if (w.atk) { w.atk = null; meleeEnd(B, u, w, true); } // knocked out of a windup
+  if (u.overheat > 0 || u.stun > 0 || u.hs > 0 || !u.entered) return;
   for (const w of u.weapons) {
     if (w.broken) continue;
     w.cd -= DT;
@@ -2121,7 +2338,7 @@ function fireWeapons(B, u, t) {
     if (kind === 'funnel') continue; // drones are run by stepFunnels
     // hold fire unless this weapon's own muzzle has a clear line to the target (an arm on the open side can still shoot)
     if (u.kind === 'mech' && t && needsLos(w) && !(w.beamT > 0) && (u.losOk === false || losBlocked(B, muzzle(u, w), t))) { if (w.charge > 0) w.charge = Math.max(0, w.charge - DT * 2); continue; }
-    if (w.combo > 0 && (w.comboT -= DT) <= 0) { w.combo = 0; w.cd = Math.max(w.cd, T.reload * u.mods.reload); } // dropped combo: normal recovery
+    if (kind === 'melee') { meleeAttack(B, u, w, t); continue; }
     if (!t || !t.alive) { if (kind === 'beam' || kind === 'rail') w.charge = 0; continue; }
     const d = dist(u, t), range = T.range * (u.mods.range || 1);
     if (kind === 'gun') {
@@ -2130,7 +2347,7 @@ function fireWeapons(B, u, t) {
         if (w.fire <= 0) {
           w.fire = T.rof; w.burst--;
           const m = muzzle(u, w);
-          const sp = T.spread * (1.65 - u.acc);
+          const sp = T.spread * (1.65 - u.acc) * (d < u.r + t.r + 45 ? 1.7 : 1); // point blank: a blade in your face spoils the aim
           const lead = d / T.speed;
           const ax = t.x + t.vx * lead * 0.8, ay = t.y + t.vy * lead * 0.8;
           const a = Math.atan2(ay - m.y, ax - m.x) + (B.rng() + B.rng() - 1) * sp;
@@ -2197,7 +2414,7 @@ function fireWeapons(B, u, t) {
         const m = muzzle(u, w);
         if (kind === 'beam') { w.beamT = T.dur; if (B.fx) B.fx.muzzle(u, m, 'beam'); }
         else {
-          const err = (B.rng() + B.rng() - 1) * 0.05 * (1.5 - u.acc);
+          const err = (B.rng() + B.rng() - 1) * 0.05 * (1.5 - u.acc) * (d < u.r + t.r + 45 ? 2.2 : 1);
           const a = u.aim + err;
           const hits = traceRail(B, u, m.x, m.y, a, range * 1.2);
           for (const h of hits.units) damage(B, u, h, T.dmg * w.tm * (h === hits.units[0] ? 1 : 0.6), 'kinetic', { x: h.x, y: h.y });
@@ -2209,50 +2426,6 @@ function fireWeapons(B, u, t) {
           if (B.fx) B.fx.rail(m.x, m.y, hits.x, hits.y, a, hits.units, !!hits.o);
           w.cd = T.reload * u.mods.reload * (u.over > 0 ? 0.3 : 1);
         }
-      }
-    } else if (kind === 'melee') {
-      const reach = u.r + t.r + T.range;
-      // Combo Master: a landed hit chains into quick follow-ups (dash + swing) instead of a full reload
-      const combo = u.perks && u.perks.has('combo'), step = combo ? (w.combo || 0) : 0, inCombo = step > 0;
-      const maxHits = T.mv === 'hammer' || T.mv === 'lance' ? 2 : 3, finisher = combo && step === maxHits - 1 && step > 0;
-      if (w.cd <= 0 && d <= reach + (inCombo ? 85 : 30) && aimedAt(u, t, inCombo ? 1.1 : 0.6)) {
-        const a = Math.atan2(t.y - u.y, t.x - u.x), lunge = T.mv === 'lance' ? 380 : T.mv === 'hammer' ? 260 : T.mv === 'katana' ? 300 : 280;
-        if (inCombo) { // weave in from alternating sides with a booster dash
-          const side = step % 2 ? 1 : -1, da = a + side * 0.75, dp = 230 + 60 * step;
-          u.vx += Math.cos(da) * dp; u.vy += Math.sin(da) * dp; u.dashT = Math.max(u.dashT || 0, 0.16);
-          if (B.fx) B.fx.boost(u, da, 'combo');
-        }
-        u.vx += Math.cos(a) * lunge; u.vy += Math.sin(a) * lunge;
-        w.cd = T.reload * u.mods.reload * (u.over > 0 ? 0.4 : 1);
-        w.swingDir = w.swingDir ? -w.swingDir : (w.mount % 2 === 0 ? 1 : -1); w.swingT = (MELEE_SWING[T.mv] || MELEE_SWING.blade).dur;
-        const cMul = combo ? [1, 0.85, 1.15][step] * (finisher && maxHits === 2 ? 1.15 / 0.85 : 1) : 1;
-        const landed = B.rng() < clamp(u.meleeSkill - t.eva * 0.6 + (T.mv === 'katana' ? 0.06 : T.mv === 'hammer' ? -0.05 : 0) + (inCombo ? 0.05 : 0), 0.25, 0.97);
-        if (combo) {
-          if (landed && step < maxHits - 1) { w.combo = step + 1; w.comboT = 0.7; w.cd = T.mv === 'hammer' || T.mv === 'lance' ? 0.3 : 0.2; if (B.fx) B.fx.combo(u, step + 2, step + 2 === maxHits); }
-          else { w.combo = 0; if (inCombo) w.cd *= 1.2; } // chain over (finished or missed): a slightly longer recovery
-        }
-        if (landed) {
-          const hx = (u.x + t.x) / 2, hy = (u.y + t.y) / 2;
-          // flanking: blows landed on the target's side or back hit harder (circling pays off)
-          const off = Math.abs(angDiff(t.aim || 0, a)), flank = t.kind === 'mech' ? (off < 1.0 ? 1.35 : off < 1.9 ? 1.15 : 1) : 1;
-          damage(B, u, t, T.dmg * w.tm * flank * cMul, 'melee', { x: hx, y: hy, ap: T.ap || 0 });
-          if (flank > 1 && B.fx) B.fx.flank(t, flank > 1.2);
-          meleeKnock(B, u, t, a, T, w);
-          if (finisher) { // the last hit of a chain sends them flying
-            t.vx += Math.cos(a) * 260 / t.mass; t.vy += Math.sin(a) * 260 / t.mass; t.stagger = Math.max(t.stagger || 0, 0.35); t.stun = Math.max(t.stun, t.boss ? 0.1 : 0.25);
-            if (B.fx) { B.fx.hitstop(0.1); B.fx.shake += 3; B.fx.finisher(t); }
-          }
-          // follow-through: the attacker rebounds a little so fighters separate instead of grinding face to face
-          const rb = (T.mv === 'hammer' || T.mv === 'lance' ? 170 : 110) / Math.sqrt(u.mass); u.vx -= Math.cos(a) * rb * 0.6; u.vy -= Math.sin(a) * rb * 0.6;
-          if (u.mm) u.mm.hit = true;
-          if (B.fx) B.fx.hitstop(T.mv === 'hammer' ? 0.09 : T.mv === 'lance' ? 0.08 : T.mv === 'katana' ? 0.03 : 0.045);
-          if (T.mv === 'hammer') {
-            t.stun = Math.max(t.stun, 0.45 * (t.boss ? 0.5 : 1));
-            for (const e of enemiesOf(B, u)) if (e !== t && dist(e, t) < 75 + e.r) { damage(B, u, e, T.dmg * w.tm * 0.45, 'melee', e); const ea = Math.atan2(e.y - t.y, e.x - t.x); e.vx += Math.cos(ea) * 180 / e.mass; e.vy += Math.sin(ea) * 180 / e.mass; }
-          }
-          if (B.fx) B.fx.slash(u, t, true, T.mv, w);
-        } else if (B.fx) B.fx.slash(u, t, false, T.mv, w);
-        u.heat += T.heat;
       }
     } else if (kind === 'flame') {
       if (w.cd <= 0 && d <= range + t.r && aimedAt(u, t, 0.35)) {
@@ -2414,14 +2587,15 @@ function trySignature(B, u) {
 function bugAttack(B, u, t) {
   const T = BUGS[u.bug];
   u.cd -= DT; u.cd2 -= DT; u.biteT = Math.max(0, (u.biteT || 0) - DT);
-  if (u.stun > 0 || !t || !t.alive || !u.entered) return;
+  if (u.stun > 0 || u.hs > 0 || !t || !t.alive || !u.entered) return;
   const d = dist(u, t);
   if (u.bug === 'drone' || u.bug === 'carapace') {
     if (u.cd <= 0 && d <= u.r + t.r + T.reach) {
       u.cd = T.rate; u.biteT = 0.28; // mandible snap (drawn by drawHollow)
+      { const la = Math.atan2(t.y - u.y, t.x - u.x), lg = u.bug === 'drone' ? 150 : 90; u.vx += Math.cos(la) * lg; u.vy += Math.sin(la) * lg; } // simplified melee: a lunge with every snap
       if (B.rng() < clamp(u.meleeSkill - t.eva, 0.3, 0.95)) {
         damage(B, u, t, T.dmg, 'melee', { x: (u.x + t.x) / 2, y: (u.y + t.y) / 2 });
-        if (u.bug === 'carapace') { const a = Math.atan2(t.y - u.y, t.x - u.x); t.vx += Math.cos(a) * 200 / t.mass; t.vy += Math.sin(a) * 200 / t.mass; }
+        if (u.bug === 'carapace') { const a = Math.atan2(t.y - u.y, t.x - u.x); t.vx += Math.cos(a) * 200 / t.mass; t.vy += Math.sin(a) * 200 / t.mass; applyHitstun(B, t, 0.18, u); }
         if (B.fx) B.fx.bite(u, t);
       }
     }
@@ -2473,6 +2647,8 @@ function stepBattle(B) {
     // timers
     u.flash -= DT; u.stun -= DT; u.slow -= DT; u.cloak -= DT; u.taunt -= DT; u.bulwark -= DT; u.over -= DT; u.mark -= DT; u.dashT = (u.dashT || 0) - DT;
     u.armorBreak = (u.armorBreak || 0) - DT; u.stagger = (u.stagger || 0) - DT; u.knockT = (u.knockT || 0) - DT; u.tauntCd = (u.tauntCd || 0) - DT; u.intCd = (u.intCd || 0) - DT; u.strafeT -= DT; u.charging = (u.charging || 0) - DT;
+    u.hs = (u.hs || 0) - DT; u.hsRes = (u.hsRes || 0) - DT; u.launchT = (u.launchT || 0) - DT; u.passT = (u.passT || 0) - DT; u.cdashT = (u.cdashT || 0) - DT; // melee: hitstun, stun resistance, launch, pass-through, circle-dash cooldown
+    if (u.hs > 0) { u.hsRunT = (u.hsRunT || 0) + DT; if (u.hsRunT > (u.maxHsRun || 0)) u.maxHsRun = u.hsRunT; } else u.hsRunT = 0;
     if (u.shieldT > 0) { u.shieldT -= DT; if (u.shieldT <= 0) u.shield = 0; }
     if (u.weapons) for (const w of u.weapons) if (w.swingT > 0) w.swingT -= DT;
     if (u.pd) u.pd.cd -= DT;
@@ -2488,6 +2664,8 @@ function stepBattle(B) {
     const it = u.intent;
     let t = it.t && it.t.alive && it.t.cloak <= 0 ? it.t : null;
     if (!t && u.kind === 'mech') { const bt = bestTarget(B, u); if (bt && dist(u, bt) <= wRange(u)) t = bt; }
+    // mid-string a fighter stays on the mech it is comboing instead of re-targeting between blows
+    if (u.kind === 'mech') for (const w of u.weapons) if (w.cs && w.cs.tgt !== t && w.cs.tgt.alive && w.cs.tgt.cloak <= 0 && dist(u, w.cs.tgt) < 260) { t = w.cs.tgt; break; }
     u.target = t;
     u.losOk = !t || u.kind !== 'mech' || losVis(B, u, t);
     // target hidden: shoot something you can see instead (unless the rules say to focus this one)
@@ -2509,7 +2687,7 @@ function stepBattle(B) {
     } else if (u.cover && it.act !== 'advance' && it.act !== 'retreat') {
       const dc = Math.hypot(u.cover.x - u.x, u.cover.y - u.y);
       if (dc > 10) { gx = u.cover.x; gy = u.cover.y; } else wantMove = false;
-    } else if (t && u.kind === 'mech' && u.cls === 'MEL' && u.weapons.some(w => !w.broken && w.T.kind === 'melee') && u.stagger <= 0) {
+    } else if (t && u.kind === 'mech' && u.cls === 'MEL' && u.weapons.some(w => !w.broken && w.T.kind === 'melee') && u.stagger <= 0 && !(u.hs > 0)) {
       const g2 = meleeMove(B, u, t); gx = g2.x; gy = g2.y; wantMove = g2.move;
     } else if (t) {
       const pr = it.act === 'advance' ? Math.min(prefRange(u, B), 40) : prefRange(u, B);
@@ -2630,14 +2808,14 @@ function stepBattle(B) {
       const align = u.kind === 'bug' ? 1 : Math.max(0.55, Math.cos(diff)) * (back ? 0.7 : 1);
       const hv = u.kind === 'bug' ? u.legAng : da;
       tvx = Math.cos(hv) * desired * align; tvy = Math.sin(hv) * desired * align;
-      const ax = tvx - u.vx, ay = tvy - u.vy, al = Math.hypot(ax, ay), maxA = u.accel / Math.sqrt(u.mass) * DT * (u.stun > 0 || u.stagger > 0 ? 0 : 1);
+      const ax = tvx - u.vx, ay = tvy - u.vy, al = Math.hypot(ax, ay), maxA = u.accel / Math.sqrt(u.mass) * DT * (u.stun > 0 || u.stagger > 0 || u.hs > 0 ? 0 : 1);
       if (al > maxA) { u.vx += ax / al * maxA; u.vy += ay / al * maxA; } else { u.vx = tvx; u.vy = tvy; }
     }
     // friction / drag (stronger when not driving)
     // while driving, friction only bleeds off velocity that differs from the intended velocity, so slow-accelerating
     // heavy frames can actually reach their top speed (before, drag capped Assaults at ~60% of it)
-    const drag = u.dashT > 0 ? 0.6 : u.stagger > 0 ? 1.6 : wantMove ? 2.2 : 5.5;
-    const fx0 = driving && u.dashT <= 0 && !(u.stagger > 0) ? tvx : 0, fy0 = driving && u.dashT <= 0 && !(u.stagger > 0) ? tvy : 0;
+    const reel = u.stagger > 0 || u.hs > 0, drag = u.dashT > 0 ? 0.6 : u.launchT > 0 ? 1.9 : reel ? 1.6 : wantMove ? 2.2 : 5.5;
+    const fx0 = driving && u.dashT <= 0 && !reel ? tvx : 0, fy0 = driving && u.dashT <= 0 && !reel ? tvy : 0;
     u.vx -= (u.vx - fx0) * Math.min(1, drag * DT); u.vy -= (u.vy - fy0) * Math.min(1, drag * DT);
     u.x += u.vx * DT; u.y += u.vy * DT;
     const sp = Math.hypot(u.vx, u.vy);
@@ -2651,7 +2829,7 @@ function stepBattle(B) {
     if (u.charging <= 0) u.chHit = null;
     // aim
     const aimT = t || (it.ally && it.ally.alive ? it.ally : null);
-    if (aimT && u.stun <= 0) { const want = Math.atan2(aimT.y - u.y, aimT.x - u.x); u.aim += clamp(angDiff(u.aim, want), -u.turn * 1.7 * DT, u.turn * 1.7 * DT); }
+    if (aimT && u.stun <= 0 && !(u.hs > 0)) { const want = Math.atan2(aimT.y - u.y, aimT.x - u.x); u.aim += clamp(angDiff(u.aim, want), -u.turn * 1.7 * DT, u.turn * 1.7 * DT); }
     else if (u.stun <= 0) u.aim += clamp(angDiff(u.aim, u.legAng), -u.turn * DT, u.turn * DT);
     // attack
     if (u.kind === 'bug') bugAttack(B, u, t);
@@ -2663,6 +2841,7 @@ function stepBattle(B) {
     const a = us[i]; if (!a.alive) continue;
     for (let j = i + 1; j < us.length; j++) {
       const b = us[j]; if (!b.alive) continue;
+      if ((a.passT > 0 || b.passT > 0) && a.team !== b.team) continue; // a charge-through passes its target
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), min = a.r + b.r;
       if (d < min && d > 0.01) {
         const nx = dx / d, ny = dy / d, pen = min - d, tm = a.mass + b.mass;
@@ -2681,9 +2860,13 @@ function stepBattle(B) {
       const cx = clamp(a.x, o.x, o.x + o.w), cy = clamp(a.y, o.y, o.y + o.h);
       const dx = a.x - cx, dy = a.y - cy, d = Math.hypot(dx, dy);
       if (d < a.r) {
-        if (d > 0.01) { const nx = dx / d, ny = dy / d; a.x = cx + nx * a.r; a.y = cy + ny * a.r; const vn = a.vx * nx + a.vy * ny; if (vn < 0) { a.vx -= vn * nx * 1.4; a.vy -= vn * ny * 1.4; if (-vn > 260) hitObstacle(B, o, -vn * 0.15 * a.mass, { x: cx, y: cy }); if (a.knockT > 0 && -vn > 170 && a.knockSrc) { damage(B, a.knockSrc, a, Math.min(30, -vn * 0.06), 'melee', { x: cx, y: cy }); a.knockT = 0; if (B.fx) B.fx.clang(cx, cy, -vn); } } }
+        if (d > 0.01) { const nx = dx / d, ny = dy / d; a.x = cx + nx * a.r; a.y = cy + ny * a.r; const vn = a.vx * nx + a.vy * ny; if (vn < 0) { a.vx -= vn * nx * 1.4; a.vy -= vn * ny * 1.4; if (-vn > 260) hitObstacle(B, o, -vn * 0.15 * a.mass, { x: cx, y: cy }); if (a.launchT > 0 && -vn > 130 && a.knockSrc) wallSplat(B, a, cx, cy, -vn, nx, ny); else if (a.knockT > 0 && -vn > 170 && a.knockSrc) { damage(B, a.knockSrc, a, Math.min(30, -vn * 0.06), 'melee', { x: cx, y: cy }); a.knockT = 0; if (B.fx) B.fx.clang(cx, cy, -vn); } } }
         else { a.x = o.x - a.r; }
       }
+    }
+    if (a.launchT > 0 && a.entered && a.knockSrc) { // launched into the arena wall
+      const bx = a.x < a.r ? 1 : a.x > AW - a.r ? -1 : 0, by = a.y < a.r ? 1 : a.y > AH - a.r ? -1 : 0, bl = Math.hypot(bx, by);
+      if (bl) { const nx = bx / bl, ny = by / bl, vn = a.vx * nx + a.vy * ny; if (vn < -130) { a.vx -= vn * nx * 1.4; a.vy -= vn * ny * 1.4; wallSplat(B, a, clamp(a.x, a.r, AW - a.r) - nx * a.r, clamp(a.y, a.r, AH - a.r) - ny * a.r, -vn, nx, ny); } }
     }
     a.x = clamp(a.x, a.r, a.entered ? AW - a.r : Math.max(AW - a.r, a.x)); a.y = clamp(a.y, a.r, AH - a.r);
   }
@@ -2697,7 +2880,7 @@ function stepBattle(B) {
     for (const e of B.units) {
       if (!e.alive || e.team === b.team) continue;
       if (segCircle(b.x, b.y, nx, ny, e.x, e.y, e.r)) {
-        const evade = e.eva * clamp(Math.hypot(e.vx, e.vy) / 120, 0.4, 1.3) + (e.nearCover ? e.dodge.nearEva : 0);
+        const evade = e.eva * clamp(Math.hypot(e.vx, e.vy) / 120, 0.4, 1.3) + (e.nearCover ? e.dodge.nearEva : 0) + (e.dashT > 0 ? (e.mm ? MELEE_K.dashEva : 0.06) : 0) + (e.mm && e.mm.st === 'approach' ? MELEE_K.runEva : 0); // mid-dash frames are hard to track; melee footwork most of all
         if (B.rng() < evade) continue;
         damage(B, b.src, e, b.dmg, b.type || 'ballistic', { x: nx, y: ny, a: Math.atan2(b.vy, b.vx), ap: b.ap });
         if (b.knock) { const ka = Math.atan2(b.vy, b.vx); e.vx += Math.cos(ka) * b.knock / e.mass; e.vy += Math.sin(ka) * b.knock / e.mass; }
@@ -2952,7 +3135,7 @@ function boostLogic(B, u, t, it) {
     if (B.rng() < D.chance + 0.1) { boostDash(B, u, Math.atan2(u.y - sh.ty, u.x - sh.tx), 'dodge'); return; }
   }
   // 3) under ranged fire: boost into cover (lights are best at this)
-  const meleeOnly = u.weapons.every(w => w.broken || w.T.kind === 'melee');
+  const meleeOnly = u.weapons.every(w => w.broken || w.T.kind === 'melee') || (u.cls === 'MEL' && u.mm && u.mm.tgt === t && t && dist(u, t) < 520); // brawlers closing in don't stop to hide
   if (D.cover > 0 && u.coverCd <= 0 && B.t - u.lastHit < 0.5 && u.attackedBy && u.attackedBy.alive && dist(u, u.attackedBy) > 140 && !(meleeOnly && it.act !== 'retreat')) {
     u.coverCd = D.coverCd;
     if (B.rng() < D.cover) {
@@ -2967,7 +3150,7 @@ function boostLogic(B, u, t, it) {
   }
   // 4) melee gap-closer
   if (t && u.weapons.some(w => !w.broken && w.T.kind === 'melee') && (it.act === 'attack' || it.act === 'focus' || it.act === 'advance')) {
-    const dd = dist(u, t); if (dd > 140 && dd < 140 + D.range * 1.4 && !losBlocked(B, u, t)) { boostDash(B, u, Math.atan2(t.y - u.y, t.x - u.x), 'close'); return; }
+    const dd = dist(u, t); if (dd > 140 && dd < 140 + D.range * 1.4 && !losBlocked(B, u, t)) { boostDash(B, u, Math.atan2(t.y - u.y, t.x - u.x) + (u.mm ? u.mm.zz * 0.4 : 0), 'close'); return; }
   }
   // 5) boost around a wall that's in the way (agile frames do this a lot)
   u.navBoostCd = (u.navBoostCd || 0) - DT;
@@ -3216,22 +3399,46 @@ function makeFX(B, canvas, ui) {
   fx.flank = (t, rear) => texts.push({ x: t.x + rnd2(6), y: t.y - t.r - 20, txt: rear ? 'BACKSTAB' : 'FLANK', color: rear ? '#FF9AD5' : '#FFD58A', size: rear ? 12 : 10, life: 0.7, max: 0.7, vy: -34 });
   fx.hitstop = () => { }; // global hit-pause removed: it read as stutter during sustained melee
   const rgbaPre = h => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},`; };
-  fx.slash = (u, t, hit, mv, w) => {
+  fx.slash = (u, t, hit, mv, w, st) => {
     const a = Math.atan2(t.y - u.y, t.x - u.x), hx = u.x + Math.cos(a) * (u.r + 6), hy = u.y + Math.sin(a) * (u.r + 6);
     let [c1, c2, sweep, life] = SLASH[mv] || SLASH.chainblade;
     const wc = meleeTrail(u, w); if (wc) { c1 = wc[0]; c2 = wc[1]; }
     const dir = w && w.swingDir ? -w.swingDir : (u.swingDir = -(u.swingDir || 1)); // crescent follows the blade's sweep
-    add({ k: 'slash', x: u.x, y: u.y, a, r: u.r + 30 + (mv === 'hammer' ? 8 : 0), sw: sweep, dir, w: mv === 'hammer' ? 16 : mv === 'katana' ? 9 : 12, c: hit ? c1 : '#9AA6B6', c2: hit ? c2 : '#D8DEE6', life, max: life });
+    const an = st ? st.an : mv === 'lance' ? 'thrust' : 'arc', fin = st && st.fin, cc = hit ? c1 : '#9AA6B6', cc2 = hit ? c2 : '#D8DEE6';
+    const R = u.r + 30 + (mv === 'hammer' ? 8 : 0), W0 = mv === 'hammer' ? 16 : mv === 'katana' ? 9 : 12;
+    // each step leaves its own trail: crescents for sweeps, a full ring for the spin, a long spear-line for thrusts
+    if (an === 'spin') add({ k: 'slash', x: u.x, y: u.y, a: a + dir * 2.4, r: R + 4, sw: st.sw, dir, w: W0 + 2, c: cc, c2: cc2, life: 0.26, max: 0.26 });
+    else if (an === 'thrust') { add({ k: 'slash', x: u.x, y: u.y, a, r: R + 6, sw: 0.35, dir, w: W0, c: cc, c2: cc2, life: 0.1, max: 0.1 }); add({ k: 'streak', x: u.x + Math.cos(a) * u.r, y: u.y + Math.sin(a) * u.r, a, l: (st && st.thru ? 90 : 58) + (st ? st.rch : 0), life: 0.1, max: 0.1, c: hexA(c2, 0.9) }); }
+    else if (an === 'over') add({ k: 'slash', x: u.x, y: u.y, a, r: R - 4, sw: 0.9, dir, w: W0 + 6, c: cc, c2: cc2, life: 0.18, max: 0.18, gr: 0.25 });
+    else if (an === 'grind') { for (let i = 0; i < (st.hits || 3); i++) fx.after(i * st.dur / (st.hits + 1), () => { if (!u.alive) return; const ga = Math.atan2(t.y - u.y, t.x - u.x), gx = u.x + Math.cos(ga) * (u.r + 14), gy = u.y + Math.sin(ga) * (u.r + 14); fx.spark(gx, gy, ga + Math.PI / 2 * (i % 2 ? 1 : -1), 300, hit ? 5 : 2, c2, 0.5); add({ k: 'slash', x: u.x, y: u.y, a: ga, r: u.r + 18, sw: 0.6, dir: i % 2 ? 1 : -1, w: 7, c: cc, c2: cc2, life: 0.08, max: 0.08 }); }); }
+    else add({ k: 'slash', x: u.x, y: u.y, a, r: R, sw: st ? st.sw : sweep, dir, w: an === 'draw' ? W0 - 3 : W0 + (an === 'rise' ? 3 : 0), c: cc, c2: cc2, life: an === 'draw' ? life * 1.4 : life, max: an === 'draw' ? life * 1.4 : life, gr: an === 'rise' ? 0.35 : 0 });
+    if (an === 'draw' && hit) { const pa = a + Math.PI / 2, L = t.r + 26; arcs.push({ a: { x: t.x - Math.cos(pa) * L, y: t.y - Math.sin(pa) * L }, b: { x: t.x + Math.cos(pa) * L, y: t.y + Math.sin(pa) * L }, life: 0.16, max: 0.16, c: c2, thin: true }); }
     if (!hit) { fx.dust(hx, hy, 1, 10, 50); return; }
-    const ix = (u.x + t.x) / 2, iy = (u.y + t.y) / 2, heavy = mv === 'hammer' || mv === 'lance';
-    add({ k: 'glow', x: ix, y: iy, s: heavy ? 58 : 38, life: 0.09, max: 0.09, c: c2 });
-    add({ k: 'burst', x: ix, y: iy, a, n: heavy ? 9 : 6, r: heavy ? 46 : 30, c: c1, life: heavy ? 0.18 : 0.13, max: heavy ? 0.18 : 0.13 });
-    fx.spark(ix, iy, a, heavy ? 520 : 380, heavy ? 12 : 8, c2, heavy ? 0.7 : 1.0);
+    const ix = (u.x + t.x) / 2, iy = (u.y + t.y) / 2, heavy = mv === 'hammer' || mv === 'lance' || fin;
+    add({ k: 'glow', x: ix, y: iy, s: heavy ? 44 : 30, life: 0.08, max: 0.08, c: c2 });
+    add({ k: 'burst', x: ix, y: iy, a, n: heavy ? 9 : 6, r: heavy ? 42 : 28, c: c1, life: heavy ? 0.16 : 0.12, max: heavy ? 0.16 : 0.12 });
+    fx.spark(ix, iy, a, heavy ? 520 : 380, Math.round((heavy ? 12 : 8) * fx.load()), c2, heavy ? 0.7 : 1.0);
     fx.ring(ix, iy, heavy ? 56 : 34, heavy ? 0.26 : 0.16, wc ? rgbaPre(c1) : mv === 'katana' ? 'rgba(255,170,230,' : mv === 'lance' ? 'rgba(170,225,255,' : 'rgba(255,225,170,', heavy ? 3.5 : 2);
-    fx.light(ix, iy, heavy ? 110 : 70, c1, 0.1);
-    fx.shake += mv === 'hammer' ? 2.5 : mv === 'lance' ? 2 : mv === 'katana' ? 0.3 : 0.8;
-    if (mv === 'lance') { add({ k: 'streak', x: u.x + Math.cos(a) * u.r, y: u.y + Math.sin(a) * u.r, a, l: 46, life: 0.08, max: 0.08 }); fx.smoke(ix, iy, 2, 14, 0.4, 1); }
-    if (mv === 'hammer') { fx.ring(t.x, t.y, 84, 0.32, 'rgba(255,220,160,', 4); fx.dust(t.x, t.y, 5, 20, 120); fx.debris(t.x, t.y, 2, 160, '#3A3430', 4); }
+    fx.light(ix, iy, heavy ? 90 : 55, c1, 0.08);
+    fx.shake += mv === 'hammer' ? 1.6 : mv === 'lance' ? 1.4 : mv === 'katana' ? 0.3 : 0.6;
+    if (an === 'thrust') fx.smoke(ix, iy, mv === 'lance' ? 2 : 1, 14, 0.4, 1);
+    if (an === 'over' && !(st && st.aoe)) { fx.ring(t.x, t.y, 70, 0.28, 'rgba(255,220,160,', 3); fx.dust(t.x, t.y, 4, 18, 110); }
+  };
+  fx.quake = (x, y, r) => { // ground-pound shockwave: double ring, cracks scorched into the ground, rubble
+    fx.ring(x, y, r + 20, 0.4, 'rgba(255,220,160,', 5); fx.after(0.06, () => fx.ring(x, y, r * 0.7, 0.3, 'rgba(255,255,235,', 2.5));
+    fx.scorch(x, y, r * 0.45); fx.dust(x, y, Math.round(7 * fx.load()), 22, 150); fx.debris(x, y, 3, 200, '#3A3430', 4); fx.light(x, y, 140, '#FFC070', 0.14); fx.shake += 2.5;
+  };
+  fx.clash = (x, y, a) => { // blades meet: a bright cross-flash and sparks thrown both ways
+    add({ k: 'glow', x, y, s: 64, life: 0.14, max: 0.14, c: '#FFF6E0' });
+    fx.spark(x, y, a + Math.PI / 2, 460, 9, '#FFE2A0', 0.6); fx.spark(x, y, a - Math.PI / 2, 460, 9, '#FFFFFF', 0.6);
+    fx.ring(x, y, 46, 0.22, 'rgba(255,240,200,', 3); fx.light(x, y, 120, '#FFE0A0', 0.12); fx.shake += 1.8;
+    texts.push({ x, y: y - 26, txt: 'CLASH', color: '#FFF1C8', size: 13, life: 0.7, max: 0.7, vy: -30 });
+  };
+  fx.breakFree = t => { fx.ring(t.x, t.y, t.r + 22, 0.3, 'rgba(160,230,255,', 3); texts.push({ x: t.x, y: t.y - t.r - 18, txt: 'BREAK', color: '#A8E8FF', size: 11, life: 0.7, max: 0.7, vy: -30 }); };
+  fx.wallSplat = (x, y, na, v) => {
+    fx.ring(x, y, 40 + v * 0.05, 0.3, 'rgba(255,215,170,', 4); add({ k: 'glow', x, y, s: 50, life: 0.12, max: 0.12, c: '#FFE6C0' });
+    fx.spark(x, y, na, 420, Math.round(10 * fx.load()), '#FFD9A0', 1.1); fx.debris(x, y, 3, 180, '#4A4038', 4); fx.dust(x, y, 4, 16, 90); fx.shake += 3;
+    texts.push({ x, y: y - 24, txt: 'WALL SPLAT', color: '#FFC27A', size: 13, life: 0.8, max: 0.8, vy: -30 });
   };
   fx.knock = (t, a, kb) => {
     const n = kb > 260 ? 6 : 3;
@@ -3417,8 +3624,13 @@ function makeFX(B, canvas, ui) {
     // ripple that travels along the wall from the impact point
 
   };
-  fx.combo = (u, n, last) => texts.push({ x: u.x + rnd(-6, 6), y: u.y - u.r - 14, txt: last ? `x${n} FINISH` : `x${n}`, color: last ? '#FFB15A' : '#FFE2A0', size: last ? 15 : 13, life: 0.6, max: 0.6, vy: -36 });
-  fx.finisher = t => { fx.ring(t.x, t.y, t.r + 30, 0.3, 'rgba(255,200,120,', 3.5); fx.spark(t.x, t.y, 0, 380, 14, '#FFD27A', Math.PI); add({ k: 'glow', x: t.x, y: t.y, s: t.r * 2.2, life: 0.12, max: 0.12, c: '#FFE2B0' }); fx.light(t.x, t.y, 110, '#FFB060', 0.12); };
+  // combo counter: one ticking label per fighter (re-used while the string runs), the finisher calls the string's name
+  fx.combo = (u, n, name) => {
+    let L = texts.find(x => x.combo === u && x.life > 0.12);
+    if (!L) { L = { combo: u, x: u.x, y: u.y - u.r - 16, vy: -14 }; texts.push(L); }
+    Object.assign(L, { x: u.x + rnd(-3, 3), y: u.y - u.r - 16, txt: name ? `x${n} ${name.toUpperCase()}!` : `x${n} HIT`, color: name ? '#FFB15A' : n >= 3 ? '#FFD27A' : '#FFE2A0', size: name ? 15 : 12 + Math.min(3, n - 1), life: name ? 1.0 : 0.65, max: name ? 1.0 : 0.65 });
+  };
+  fx.finisher = (t, a) => { if (a != null) for (let i = 0; i < 3; i++) add({ k: 'streak', x: t.x - Math.cos(a) * t.r, y: t.y - Math.sin(a) * t.r + (i - 1) * t.r * 0.5, a: a + Math.PI, l: 34 + i % 2 * 16, life: 0.16, max: 0.16, c: 'rgba(255,235,200,.7)' }); fx.ring(t.x, t.y, t.r + 30, 0.3, 'rgba(255,200,120,', 3.5); fx.spark(t.x, t.y, 0, 380, 14, '#FFD27A', Math.PI); add({ k: 'glow', x: t.x, y: t.y, s: t.r * 1.5, life: 0.1, max: 0.1, c: '#FFE2B0' }); fx.light(t.x, t.y, 90, '#FFB060', 0.1); };
   fx.funnelBreak = d => { fx.ring(d.x, d.y, 22, 0.25, 'rgba(130,225,255,', 2.5); fx.spark(d.x, d.y, 0, 180, 6, '#7FE0FF', Math.PI); };
   fx.funnelMend = a => { add({ k: 'glow', x: a.x + rnd(-a.r * 0.6, a.r * 0.6), y: a.y + rnd(-a.r * 0.6, a.r * 0.6), s: 10, life: 0.5, max: 0.5, c: '#7CFFB0' }); };
   fx.funnelPop = d => {
@@ -3745,7 +3957,7 @@ function updateFX(B, fx, dt) {
   fx.time += dt;
   updateAmbient(fx, B.cfg.biome, dt);
   for (const tm of fx.timers) { tm.t -= dt; if (tm.t <= 0) { tm.fn(); tm.done = true; } }
-  fx.timers = fx.timers.filter(t => !t.done);
+  { const T = fx.timers; let j = 0; for (const x of T) if (!x.done) T[j++] = x; T.length = j; } // in place: fx.after pushes into this array
   const P = fx.P;
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i];
@@ -3772,15 +3984,22 @@ function updateFX(B, fx, dt) {
     if (p.k === 'smoke' || p.k === 'dust' || p.k === 'steam' || p.k === 'puff') { p.vx -= p.vx * Math.min(1, 1.2 * dt); p.vy -= p.vy * Math.min(1, 0.6 * dt); p.vx += 6 * dt; }
     if (p.k === 'pod') { if (Math.random() < dt * 30) { fx.smoke(p.x, p.y - p.z, 1, 7, 0.25, 0.6); } p.vz = Math.max(p.vz, -60); }
   }
-  for (const L of fx.lights) L.life -= dt; fx.lights = fx.lights.filter(L => L.life > 0);
-  for (const t of fx.texts) { t.life -= dt; t.y += t.vy * dt; t.vy *= 0.94; } fx.texts = fx.texts.filter(t => t.life > 0);
-  for (const t of fx.trails) t.life -= dt; fx.trails = fx.trails.filter(t => t.life > 0);
-  for (const a of fx.arcs) a.life -= dt; fx.arcs = fx.arcs.filter(a => a.life > 0);
+  // expire in place: makeFX's emitters push into these same arrays (reassigning them orphaned new texts, lights and arcs)
+  const prune = A => { let j = 0; for (const x of A) if (x.life > 0) A[j++] = x; A.length = j; };
+  for (const L of fx.lights) L.life -= dt; prune(fx.lights);
+  for (const t of fx.texts) { t.life -= dt; t.y += t.vy * dt; t.vy *= 0.94; } prune(fx.texts);
+  for (const t of fx.trails) t.life -= dt; prune(fx.trails);
+  for (const a of fx.arcs) a.life -= dt; prune(fx.arcs);
   for (const l of fx.pdl) l.life -= dt; fx.pdl = fx.pdl.filter(l => l.life > 0);
   fx.shake = Math.min(10, fx.shake) * Math.pow(0.0005, dt); if (fx.shake < 0.6) fx.shake = 0;
   // continuous emitters from units
   for (const u of B.units) {
     if (!u.alive) continue;
+    // knocked sliding: dust kicks up behind, feet gouge the ground
+    if ((u.launchT > 0 || (u.hs > 0 && u.vx * u.vx + u.vy * u.vy > 19600)) && Math.random() < dt * 28 * fx.load()) {
+      const va = Math.atan2(u.vy, u.vx); fx.dust(u.x - Math.cos(va) * u.r * 0.5 + rnd2(5), u.y - Math.sin(va) * u.r * 0.5 + rnd2(5), 1, u.r * 0.55, 25);
+      if (Math.random() < 0.35) fx.foot(u.x + rnd2(u.r * 0.4), u.y + rnd2(u.r * 0.4), va, u.r * 0.6);
+    }
     if (u.kind === 'mech') {
       const hp = hpPct(u);
       u.smokeT = (u.smokeT || 0) - dt;
@@ -3788,6 +4007,9 @@ function updateFX(B, fx, dt) {
       if (hp < 0.3 && Math.random() < dt * 4) fx.spark(u.x, u.y, Math.random() * TAU, 160, 3, '#BFE6FF', Math.PI);
       if (u.burn > 0 && Math.random() < dt * 20) fx.fire(u.x + rnd2(u.r * 0.5), u.y + rnd2(u.r * 0.5), 1, 8, 20, 0.5);
       if (u.dashT > 0 && Math.random() < dt * 8) fx.dust(u.x, u.y, 1, u.r * 0.45, 30);
+      // dash after-images: up to 3 recent positions, drawn as fading silhouettes
+      if (u.dashT > 0) { u.ghT = (u.ghT || 0) - dt; if (u.ghT <= 0) { u.ghT = 0.04; (u.gh = u.gh || []).unshift({ x: u.x, y: u.y, aim: u.aim, t: fx.time }); if (u.gh.length > 3) u.gh.pop(); } }
+      if (u.gh && u.gh.length && fx.time - u.gh[u.gh.length - 1].t > 0.2) u.gh.pop();
       // footprints
       const step = Math.floor(u.walk);
       if (u.lastStep === undefined) u.lastStep = step;
@@ -3877,7 +4099,7 @@ function drawBattle(B, fx, W, H, dpr) {
   // units
   for (const u of B.units) if (u.alive) {
     if (u.cloak > 0) ctx.globalAlpha = u.team === 0 ? 0.4 : 0.14;
-    if (u.kind === 'mech') { if (u.dashT > 0) drawDashJets(ctx, u, fx.time); drawMech(ctx, u, fx.time); } else drawBug(ctx, u, fx.time);
+    if (u.kind === 'mech') { if (u.gh && u.gh.length) drawGhosts(ctx, u, fx.time); if (u.dashT > 0) drawDashJets(ctx, u, fx.time); drawMech(ctx, u, fx.time); } else drawBug(ctx, u, fx.time);
     ctx.globalAlpha = 1;
     if (u.shield > 0) drawShield(ctx, u, fx.time);
     if (u.stun > 0 && Math.random() < 0.6) drawZap(ctx, u.x, u.y, u.r * 1.3, '#B9E2FF');
@@ -4211,15 +4433,16 @@ function drawParticles(ctx, fx, layer) {
       } break;
       case 'chip': if (p.glint) { const tw = Math.sin(fx.time * 30 + p.rot * 5); if (tw > 0.55) { ctx.globalAlpha = k * (tw - 0.55) * 2.2; ctx.drawImage(glowSprite('#FFFFFF'), p.x - 4, p.y - p.z - 4, 8, 8); } } break;
       case 'spark': ctx.strokeStyle = p.c; ctx.globalAlpha = Math.min(1, k * 2.2); ctx.lineWidth = p.w; ctx.beginPath(); ctx.moveTo(p.x, p.y - p.z); ctx.lineTo(p.x - p.vx * 0.025, p.y - p.z - p.vy * 0.025 + p.vz * 0.02); ctx.stroke(); break;
-      case 'streak': ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(255,230,160,.9)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + Math.cos(p.a) * p.l, p.y + Math.sin(p.a) * p.l); ctx.stroke(); break;
+      case 'streak': ctx.globalAlpha = p.c ? Math.min(1, k * 2) : 1; ctx.strokeStyle = p.c || 'rgba(255,230,160,.9)'; ctx.lineWidth = p.c ? 3 : 4; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + Math.cos(p.a) * p.l, p.y + Math.sin(p.a) * p.l); ctx.stroke(); break;
       case 'arc': ctx.strokeStyle = p.c; ctx.globalAlpha = k; ctx.lineWidth = 4 * k + 1; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, p.a - 1, p.a + 1); ctx.stroke(); break;
       case 'slash': {
         // swept crescent: the blade's leading edge travels across the arc, leaving a tapering glow behind it
         const prog = 1 - k, half = p.sw / 2, a0 = p.a - half * p.dir, lead = a0 + p.dir * p.sw * Math.min(1, prog * 1.8), tail = a0 + p.dir * p.sw * Math.max(0, prog * 1.8 - 0.75);
         const lo = Math.min(tail, lead), hi = Math.max(tail, lead); if (hi - lo < 0.02) break;
         ctx.globalAlpha = Math.min(1, k * 2); ctx.lineCap = 'round';
-        ctx.strokeStyle = p.c; ctx.lineWidth = p.w; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, lo, hi); ctx.stroke();
-        ctx.strokeStyle = p.c2; ctx.lineWidth = p.w * 0.35; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + p.w * 0.15, lo, hi); ctx.stroke();
+        const pr = p.r * (1 + (p.gr || 0) * prog); // rising cuts and slams swell outward
+        ctx.strokeStyle = p.c; ctx.lineWidth = p.w; ctx.beginPath(); ctx.arc(p.x, p.y, pr, lo, hi); ctx.stroke();
+        ctx.strokeStyle = p.c2; ctx.lineWidth = p.w * 0.35; ctx.beginPath(); ctx.arc(p.x, p.y, pr + p.w * 0.15, lo, hi); ctx.stroke();
         ctx.lineCap = 'butt'; break;
       }
       case 'burst': {
@@ -4494,7 +4717,7 @@ function drawMech(ctx, u, time, opts = {}) {
   }
   ctx.restore();
   // ---------- upper body ----------
-  ctx.save(); ctx.translate(u.x, u.y); ctx.rotate(u.aim);
+  ctx.save(); ctx.translate(u.x, u.y); ctx.rotate(u.aim + (flat ? 0 : meleeTwist(u)));
   const glowOn = !flat && (u.dashT > 0 || Math.hypot(u.vx || 0, u.vy || 0) > 60);
   const art = flat ? null : mechArtLayout(u, s, sw);
   // backpack
@@ -4657,6 +4880,18 @@ function drawMissiles(ctx, B) {
     ctx.restore();
   }
 }
+function drawGhosts(ctx, u, time) {
+  const art = mechArtLayout(u, u.r, 1), col = u.team === 0 ? '#5FC8FF' : '#FF7A6A', a0 = ctx.globalAlpha;
+  ctx.globalCompositeOperation = 'lighter'; // holographic: additive tinted silhouettes
+  for (const g of u.gh) {
+    const age = (time - g.t) / 0.2; if (age >= 1 || Math.hypot(g.x - u.x, g.y - u.y) < u.r * 0.45) continue;
+    ctx.save(); ctx.translate(g.x, g.y); ctx.rotate(g.aim); ctx.globalAlpha = a0 * 0.5 * (1 - age);
+    if (art) { ctx.drawImage(artLayer(`m${art.vi}booster`, art.V.booster, 'sil', col), art.bx, art.by, art.bw, art.bh); ctx.drawImage(artLayer(`m${art.vi}torso`, art.V.torso, 'sil', col), art.tx, art.ty, art.tw, art.th); }
+    else { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 0, u.r * 0.85, u.r * 0.7, 0, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+  ctx.globalAlpha = a0; ctx.globalCompositeOperation = 'source-over';
+}
 function drawDashJets(ctx, u, time) {
   const sp = Math.hypot(u.vx, u.vy); if (sp < 40) return;
   const a = Math.atan2(u.vy, u.vx), ca = Math.cos(a), sa = Math.sin(a), k = clamp(u.dashT / 0.3, 0.35, 1);
@@ -4746,12 +4981,39 @@ function drawFunnelRacks(ctx, u, s, time) {
     if (w.fl && (w.fl.out || w.fl.cd > 0)) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(time * 8); const r = 0.12 * s; for (const side of [1, -1]) ctx.drawImage(glowSprite(c), -1.14 * s - off - r, side * (0.42 * s + off) - r, r * 2, r * 2); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
   });
 }
+function swingPhase(w) {
+  const A = w.swA, p = clamp(1 - w.swingT / A.dur, 0, 1), h = clamp(A.su / A.dur, 0.15, 0.8);
+  const q = p < h ? 1 - Math.pow(1 - p / h, 3) : 1, r = p < h ? 0 : (p - h) / (1 - h);
+  return { p, h, q, back: r * r * (3 - 2 * r), out: Math.sin(Math.PI * Math.min(1, p / h)) };
+}
+// the upper body twists into each swing: a full turn for spins, a wind-up and follow-through for sweeps
+function meleeTwist(u) {
+  if (!u.weapons) return 0;
+  for (const w of u.weapons) {
+    if (!(w.swingT > 0 && w.swA) || w.T.kind !== 'melee') continue;
+    const A = w.swA, d = w.swingDir || 1, m = swingPhase(w);
+    if (A.an === 'spin') return -d * TAU * (m.p * m.p * (3 - 2 * m.p));
+    if (A.an === 'arc' || A.an === 'rise' || A.an === 'draw') return d * 0.28 * (1 - 2 * m.q) * (1 - m.back);
+    if (A.an === 'thrust') return -d * 0.18 * m.out;
+    return 0;
+  }
+  return 0;
+}
 function drawWeapon(ctx, w, i, s, u, time, art) {
   const side = i % 2 === 0 ? 1 : -1, sh = i >= 2, y = sh ? side * 0.45 * s : side * 0.74 * s, k = w.T.kind;
   if (k === 'funnel' && art) return; // in battle the rack sits on the back (drawFunnelRacks); thumbnails keep the arm pod
   const rc = (u.recoil || 0) * s * 0.12 * (k === 'gun' ? 1 : 0);
   ctx.save(); ctx.translate(-rc + (sh ? -0.08 * s : 0), y); if (sh) ctx.scale(0.72, 0.72);
-  if (k === 'melee' && w.swingT > 0) {
+  if (k === 'melee' && w.swingT > 0 && w.swA) {
+    // combo-step animation: m.p = progress, m.q = strike ease (reaches 1 as the blow lands), m.back = recovery ease
+    const A = w.swA, m = swingPhase(w), d = w.swingDir || 1, { p, h, q, back, out } = m;
+    if (A.an === 'thrust') { const ext = p < h * 0.45 ? -0.25 * p / (h * 0.45) : p < h ? -0.25 + 1.25 * (p - h * 0.45) / (h * 0.55) : 1 - back; ctx.rotate(-0.16 * d * (1 - back)); ctx.translate(ext * s * (A.thru ? 0.75 : 0.6), 0); }
+    else if (A.an === 'draw') { const q2 = p < h ? 1 - Math.pow(1 - p / h, 5) : 1; ctx.rotate((2.5 + (-1.45 - 2.5) * q2) * (1 - back) * d); ctx.translate(out * s * 0.14, 0); }
+    else if (A.an === 'spin') { ctx.rotate(0.95 * d * (1 - back)); ctx.translate(s * 0.12 * (1 - back), 0); }
+    else if (A.an === 'over') { const sx = p < h * 0.7 ? 1 - 0.62 * p / (h * 0.7) : p < h ? 0.38 + 0.92 * (p - h * 0.7) / (h * 0.3) : 1.3 - 0.3 * back; ctx.rotate(-0.35 * d * (1 - back)); ctx.scale(sx, 1 + Math.max(0, sx - 1) * 0.6); }
+    else if (A.an === 'grind') { const j = (1 - back) * (p > h ? 1 : p / h); ctx.rotate(-0.42 * d * j + Math.sin(time * 80) * 0.07 * j); ctx.translate(s * (0.24 * j + Math.sin(time * 97) * 0.035 * j), 0); }
+    else { ctx.rotate((A.a0 + (A.a1 - A.a0) * q) * (1 - back) * d); ctx.translate(out * s * 0.12, 0); if (A.an === 'rise') { const g = 1 + 0.3 * out; ctx.scale(g, g); } }
+  } else if (k === 'melee' && w.swingT > 0) {
     const S = MELEE_SWING[w.T.mv] || MELEE_SWING.blade, p = clamp(1 - w.swingT / S.dur, 0, 1), d = w.swingDir || 1;
     if (S.thrust) ctx.translate(Math.sin(Math.PI * p) * s * S.thrust, 0);
     else {
@@ -4822,7 +5084,7 @@ function drawWeapon(ctx, w, i, s, u, time, art) {
     ctx.beginPath(); ctx.moveTo(0.2 * s, -0.03 * s); ctx.quadraticCurveTo(0.9 * s, -0.05 * s, 1.36 * s, 0); ctx.lineTo(0.2 * s, 0.03 * s); ctx.fill();
   } else if (key === 'lance') {
     ctx.fillStyle = metal; roundRect(ctx, -0.2 * s, -0.17 * s, 0.75 * s, 0.34 * s, 4); ctx.fill();
-    const ext = w.cd > (w.T.reload - 0.25) ? 0.35 : 0;
+    const sp = w.swingT > 0 && w.swA ? swingPhase(w) : null, ext = sp ? (sp.q >= 1 && sp.back < 0.6 ? 0.35 : 0) : w.cd > (w.T.reload - 0.25) && w.cd < 5 ? 0.35 : 0;
     ctx.fillStyle = '#BFC7D2'; ctx.beginPath(); ctx.moveTo((0.5 + ext) * s, -0.07 * s); ctx.lineTo((0.95 + ext) * s, 0); ctx.lineTo((0.5 + ext) * s, 0.07 * s); ctx.fill();
     ctx.fillStyle = '#C9A23A'; ctx.fillRect(0.0, -0.17 * s, 0.06 * s, 0.34 * s); ctx.fillRect(0.2 * s, -0.17 * s, 0.06 * s, 0.34 * s);
   } else if (k === 'gun') { ctx.fillStyle = metal; roundRect(ctx, -0.25 * s, -0.13 * s, 0.7 * s, 0.26 * s, 3); ctx.fill(); ctx.fillStyle = dark; ctx.fillRect(0.4 * s, -0.05 * s, 0.65 * s, 0.1 * s); ctx.fillStyle = '#5A626E'; ctx.fillRect(0.95 * s, -0.07 * s, 0.1 * s, 0.14 * s); }
@@ -6435,6 +6697,7 @@ function modStats(k, t = 1) {
     if (T.kind === 'melee') S.tags.push(`Knockback: ${T.knock >= 400 ? 'heaviest' : T.knock >= 300 ? 'heavy' : T.knock >= 120 ? 'light' : 'slight'}`);
     if (T.stagger) S.tags.push('Staggers');
     if (T.mv === 'hammer') S.tags.push('Splash + stun');
+    if (T.kind === 'melee' && MELEE_STRINGS[meleeFamT(T)]) S.tags.push('Combos: ' + MELEE_STRINGS[meleeFamT(T)].map(x => x.n).join(' / '));
     if (T.btype === 'energy') S.tags.push('Energy');
   } else {
     S.cd = T.reload || 0;
