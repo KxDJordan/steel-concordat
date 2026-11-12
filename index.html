@@ -541,6 +541,36 @@ select,input[type=text]{border-radius:5px}
   /* keep the base drawing next to its controls instead of a screen-tall picture */
   .facwrap{grid-template-columns:minmax(0,1.2fr) minmax(220px,1fr)}
 }
+/* news ticker */
+.ticker{display:flex; width:100%; align-items:stretch; padding:0; margin:0 0 10px; height:30px; border:1px solid var(--line); border-radius:6px; background:var(--panel); cursor:pointer; overflow:hidden; text-align:left}
+.ticker .tlab{flex:none; display:flex; align-items:center; padding:0 10px; background:var(--amber); color:var(--amber-ink); font:700 11px var(--fh); letter-spacing:.16em}
+.ticker .tmask{flex:1; min-width:0; overflow:hidden; display:flex; align-items:center; -webkit-mask-image:linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); mask-image:linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent)}
+.ticker .trun{display:inline-flex; gap:12px; white-space:nowrap; font-size:13px; padding-left:12px; animation:tick linear infinite; will-change:transform}
+.ticker .tk b{color:var(--amber); font-family:var(--fh); margin-right:6px} .ticker .tk.warn{color:var(--warn)} .ticker .tk.bad{color:var(--danger)} .ticker .tk.good{color:var(--good)}
+.ticker .trun i{font-style:normal; color:var(--muted)}
+.ticker:hover .trun, .ticker:focus .trun{animation-play-state:paused}
+@keyframes tick{from{transform:translateX(0)} to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){ .ticker .trun{animation:none} }
+/* contract extras */
+.chip.wx{color:var(--cyan)} .chip.wx-clear{color:var(--muted)} .chip.wx-night{color:#8FA8FF} .chip.wx-dust{color:#C9894A} .chip.wx-spore{color:var(--hollow)}
+.chip.story{color:var(--amber); border-color:var(--amber)}
+.brief{border-left:3px solid var(--amber); background:var(--amber-soft); padding:6px 10px; border-radius:4px; margin:6px 0}
+/* debrief comms */
+.comms{display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:8px; margin-top:6px}
+.comm{display:flex; gap:8px; align-items:flex-start; padding:6px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); min-width:0}
+.comm.kia{border-color:var(--danger); opacity:.8} .comm .cm{min-width:0; flex:1}
+.comm q{display:block; font-style:italic; font-size:12.5px; margin-top:3px; line-height:1.35}
+.comm .portrait.md{width:60px; height:60px}
+.chip.mvp{color:var(--amber); border-color:var(--amber); font-family:var(--fh); font-weight:700} .chip.close{color:var(--danger)}
+/* codex */
+.codex{display:grid; grid-template-columns:minmax(170px, 250px) minmax(0, 1fr); gap:12px; margin-top:10px; align-items:start}
+.codexlist{max-height:calc(100vh - 140px); overflow:auto; padding:8px}
+.codexlist h4{margin:8px 0 2px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)} .codexlist h4:first-child{margin-top:0}
+.cxi{display:block; width:100%; text-align:left; padding:5px 8px; border:none; background:none; border-radius:4px; cursor:pointer; font-size:13px}
+.cxi.on{background:var(--amber-soft); color:var(--amber); font-weight:600} .cxi.locked{color:var(--muted); font-style:italic; cursor:default; opacity:.7}
+.codexentry p{line-height:1.6; max-width:64ch; font-size:15px}
+@media (max-width: 600px){ .codex{grid-template-columns:minmax(0,1fr)} .codexlist{max-height:180px} }
+@media (max-height: 460px){ .codexlist{max-height:calc(100vh - 110px)} .codexentry p{font-size:14px} .comm .portrait.md{width:48px; height:48px} }
 </style>
 </head>
 <body>
@@ -731,6 +761,28 @@ const BIOMES = {
   ice: { name: 'Ice moon', g1: '#9FB4C2', g2: '#7A90A0', rock: '#C7D6E0' },
   hive: { name: 'Alien hive', g1: '#3B2A45', g2: '#2A1E33', rock: '#55396A' },
 };
+// battle conditions: picked per contract from its seed + biome; both sides lose the same accuracy and reach
+const WEATHER = {
+  clear: { name: 'Clear', short: 'Clear', acc: 0, range: 1, desc: 'Good visibility. No penalties.' },
+  night: { name: 'Night', short: 'Night', acc: 0.06, range: 0.85, desc: 'Darkness: weapon reach -15%, accuracy -6 for both sides.' },
+  dust: { name: 'Dust storm', short: 'Dust', acc: 0.08, range: 0.82, desc: 'Blowing grit: weapon reach -18%, accuracy -8 for both sides.' },
+  blizzard: { name: 'Blizzard', short: 'Blizzard', acc: 0.07, range: 0.85, desc: 'Whiteout: weapon reach -15%, accuracy -7 for both sides.' },
+  rain: { name: 'Acid rain', short: 'Rain', acc: 0.04, range: 0.9, desc: 'Rain and smog: weapon reach -10%, accuracy -4 for both sides.' },
+  spore: { name: 'Spore haze', short: 'Spores', acc: 0.05, range: 0.88, desc: 'Drifting spores: weapon reach -12%, accuracy -5 for both sides.' },
+};
+const BIOME_STORM = { waste: 'dust', ice: 'blizzard', city: 'rain', hive: 'spore' };
+function rollWeather(biome, seed) { const h = hashStr(String(seed) + ':wx') % 100; return h < 52 ? 'clear' : h < 75 ? 'night' : BIOME_STORM[biome] || 'clear'; }
+function wxOf(c) { if (!c) return 'clear'; if (!c.weather || !WEATHER[c.weather]) c.weather = rollWeather(c.biome, c.seed); return c.weather; }
+function wxChip(k) { const W = WEATHER[k] || WEATHER.clear; return `<span class="chip wx wx-${k}" title="${esc(W.desc)}">${W.short}</span>`; }
+// apply the battle condition to a fresh unit (no RNG use: a clear battle is bit-identical to before)
+function wxUnit(B, u) { const W = B.wx; if (!W || W === WEATHER.clear) return u; u.acc = Math.max(0.3, u.acc - W.acc); if (u.mods) u.mods.range = (u.mods.range || 1) * W.range; return u; }
+const REGIONS = {
+  waste: ['the Ochre Flats', 'Saltjaw Basin', 'the Cinder Road', 'Dry Mercy', 'the Kessel Dunes', 'Marrow Wells'],
+  city: ['Old Halvard', 'the Sunken Mile', 'Port Lacuna', 'the Glass Ward', 'Teller Heights', 'Ninefold Junction'],
+  ice: ['Rime Station', 'the Pale Shelf', 'Hollowmere', 'Frostgate', 'the Whisper Lakes', 'Cairn Nine'],
+  hive: ['the Weeping Rift', 'Sporefall', 'the Choir Pits', 'Nest Ninety', 'the Red Hollows', 'the Underbloom'],
+};
+function regionOf(c) { if (!c) return ''; if (!c.region) { const L = REGIONS[c.biome] || REGIONS.waste; c.region = L[hashStr(String(c.seed) + ':rg') % L.length]; } return c.region; }
 
 const FACILITIES = {
   hangar: { name: 'Hangar', desc: 'Roster and mech capacity', cost: 6000, effect: l => `Capacity ${6 + l * 2} pilots${l >= 2 ? ', +' + (l >= 4 ? 2 : 1) + ' reserve' : ''}` },
@@ -1140,11 +1192,15 @@ function tierBase(t) { return 45 + t * 8; }
 function makeContract(rng, tier) {
   const type = rng.pick(['exterminate', 'exterminate', 'salvage', 'defense', 'bounty', 'rift']);
   let fac = type === 'rift' ? 'hollow' : rng.pick(['hollow', 'raiders', 'ghost', 'hollow', 'raiders']);
+  // a headline trend (see newsDaily) pulls contracts toward its faction and region
+  const TR = G.trend && G.day >= G.trend.from && G.day <= G.trend.until ? G.trend : null, onTrend = !!TR && (type !== 'rift' || TR.fac === 'hollow') && rng.chance(0.5);
+  if (onTrend) fac = TR.fac;
   const lvl = tierBase(tier) + rng.int(-15, 20);
   const nodes = rng.int(3, 5);
   let travel = rng.int(1, 2);
   if (G.origin === 'carrier') travel = Math.max(1, travel - 1);
-  const biome = fac === 'hollow' ? rng.pick(['hive', 'waste', 'ice', 'hive']) : rng.pick(['waste', 'city', 'ice', 'city']);
+  let biome = fac === 'hollow' ? rng.pick(['hive', 'waste', 'ice', 'hive']) : rng.pick(['waste', 'city', 'ice', 'city']);
+  if (onTrend) biome = TR.biome;
   const typeMult = { exterminate: 1, salvage: 0.85, defense: 1.1, bounty: 1.25, rift: 1.3 }[type];
   let pay = 1100 * Math.pow(1.07, lvl - 36) * typeMult;
   if (G.origin === 'arcology') pay *= 1.2;
@@ -1152,6 +1208,7 @@ function makeContract(rng, tier) {
   pay = Math.round(pay / 50) * 50;
   const c = { id: uid(), type, fac, lvl, nodes, travel, biome, pay, expires: G.day + rng.int(4, 9), seed: rng.int(1, 1e9) };
   if (type === 'bounty') c.ace = `${rng.pick(FIRST)} "${rng.pick(CALLSIGNS)}" ${rng.pick(LAST)}`;
+  if (onTrend) c.region = TR.region; regionOf(c); wxOf(c);
   return c;
 }
 function teamLevel(pilots) {
@@ -1376,7 +1433,9 @@ function newBattle(cfg) {
     rng: RNG(cfg.seed), t: 0, units: [], bullets: [], missiles: [], shells: [], beams: [], rails: [], acid: [], obstacles: [],
     events: [], waves: cfg.waves.slice(1), waveT: 26, result: null, endT: null, cfg, fx: null, headless: !!cfg.headless,
     marks: [], nextId: 1, doctrine: cfg.doctrine || 'balanced', spawnQ: [],
+    wxKey: WEATHER[cfg.weather] ? cfg.weather : 'clear',
   };
+  B.wx = WEATHER[B.wxKey];
   const rng = B.rng;
   // obstacles: placed by the map layout (streets/blocks, riverbeds, lakes, hive hubs), which the ground painter also uses
   B.map = makeMapLayout(cfg);
@@ -1478,7 +1537,7 @@ function unitFromMech(B, p, m, team, x, y) {
     st: { dealt: 0, taken: 0, kills: 0, healed: 0, dodges: 0, intercepts: 0, boosts: 0, covers: 0 }, walk: 0, flash: 0, strafe: B.rng.chance(0.5) ? 1 : -1, strafeT: B.rng.range(1, 3),
     smokeT: 0, mark: 0, color: '#888', color2: '#ccc', target: null, ally: null, goal: null,
   };
-  return u;
+  return wxUnit(B, u);
 }
 function unitFromBug(B, s, x, y) {
   const T = BUGS[s.type];
@@ -1494,7 +1553,7 @@ function unitFromBug(B, s, x, y) {
     gauge: 0, sig: null, alive: true, st: { dealt: 0, taken: 0, kills: 0, healed: 0, dodges: 0, intercepts: 0, boosts: 0, covers: 0 }, walk: B.rng() * 10, flash: 0, strafe: 1, strafeT: 2,
     cd: B.rng.range(0.3, 1.5), cd2: 4, boss: !!s.boss, faction: 'hollow', color: '#3A2550', color2: '#B07CFF', target: null,
   };
-  return u;
+  return wxUnit(B, u);
 }
 
 const hpPct = u => (u.hp.body + u.hp.arms + u.hp.legs) / (u.max.body + u.max.arms + u.max.legs);
@@ -1692,7 +1751,8 @@ function damage(B, src, tgt, amt, type, pos) {
     const ws = tgt.weapons.filter(w => !w.broken && w.T.kind !== 'funnel');
     if (ws.length > 1) { ws[ws.length - 1].broken = true; B.events.push({ type: 'broke', u: tgt, what: ws[ws.length - 1].T.name }); }
   }
-  tgt.st.taken += a; tgt.lastHit = B.t; if (a >= 6) tgt.flash = 0.08;
+  tgt.st.taken += a; tgt.lastHit = B.t; { const hp = hpPct(tgt); if (!(tgt.minHp <= hp)) tgt.minHp = hp; } // lowest HP reached (debrief close calls)
+  if (a >= 6) tgt.flash = 0.08;
   if (src && src.team !== tgt.team) {
     tgt.attackedBy = src; src.st.dealt += a; src.threat += a;
     src.gauge = Math.min(100, src.gauge + a * 0.1 * (src.mods.gauge || 1));
@@ -2930,13 +2990,13 @@ function segCircle(x1, y1, x2, y2, cx, cy, r) {
   return px * px + py * py < r * r;
 }
 function summarize(B) {
-  const out = { win: B.win, timeout: !!B.timeout, t: B.t, units: [], kills: 0 };
+  const out = { win: B.win, timeout: !!B.timeout, t: B.t, units: [], kills: 0, wx: B.wxKey };
   for (const u of B.units.concat(B.gone || [])) {
     if (u.team === 1) { if (!u.alive) out.kills++; continue; }
     out.units.push({
       pilotId: u.pilotId, mechId: u.mechId, alive: u.alive, fate: u.alive ? 'ok' : u.fate,
       hp: { body: Math.max(0, u.hp.body), arms: Math.max(0, u.hp.arms), legs: Math.max(0, u.hp.legs) }, max: u.max,
-      st: u.st, ruleCounts: u.ruleCounts, sigUsed: u.sigUsed, label: u.label,
+      st: u.st, ruleCounts: u.ruleCounts, sigUsed: u.sigUsed, label: u.label, minHp: u.minHp ?? 1,
     });
   }
   return out;
@@ -3871,10 +3931,12 @@ function drawBattle(B, fx, W, H, dpr) {
   ctx.globalCompositeOperation = 'source-over';
   drawParticles(ctx, fx, 'high');
   drawMissiles(ctx, B); // above the smoke so each round stays visible at the head of its trail
+  if (B.wxKey === 'night') drawNight(ctx, B, fx);
   drawAmbient(ctx, fx, B.cfg.biome);
+  if (B.wxKey !== 'clear' && B.wxKey !== 'night') drawWeather(ctx, B, fx);
   // lights
   ctx.globalCompositeOperation = 'lighter';
-  for (const L of fx.lights) { const k2 = L.life / L.max; ctx.globalAlpha = Math.min(1, k2 * 1.3) * 0.38; ctx.drawImage(glowSprite(L.color), L.x - L.r, L.y - L.r, L.r * 2, L.r * 2); }
+  for (const L of fx.lights) { const k2 = L.life / L.max; ctx.globalAlpha = Math.min(1, k2 * 1.3) * (B.wxKey === 'night' ? 0.5 : 0.38); ctx.drawImage(glowSprite(L.color), L.x - L.r, L.y - L.r, L.r * 2, L.r * 2); }
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   // overlays: health bars & selection
   for (const u of B.units) {
@@ -3904,9 +3966,194 @@ function drawBattle(B, fx, W, H, dpr) {
   ctx.textAlign = 'center';
   for (const t of fx.texts) { const a = Math.min(1, t.life / t.max * 2); ctx.globalAlpha = a; ctx.font = `700 ${t.size}px Chakra Petch, sans-serif`; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillText(t.txt, t.x + 1, t.y + 1); ctx.fillStyle = t.color; ctx.fillText(t.txt, t.x, t.y); }
   ctx.globalAlpha = 1;
+  if (fx.barks && fx.barks.length) drawBarks(ctx, B, fx);
   // vignette
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+}
+/* ---------- night & weather overlays ---------- */
+// night: darkness lives on a quarter-res offscreen canvas; lights cut soft holes in it ('destination-out'), then it is
+// stretched over the map. One small canvas, a few dozen drawImage calls, one full-map blit per frame.
+function holeSprite() {
+  if (SPR._hole) return SPR._hole;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.45, 'rgba(0,0,0,.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return SPR._hole = c;
+}
+function drawNight(ctx, B, fx) {
+  const S = 4, w = AW / S, h = AH / S;
+  let c = fx.nightC; if (!c) { c = fx.nightC = document.createElement('canvas'); c.width = w; c.height = h; }
+  const g = c.getContext('2d'), hole = holeSprite();
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, w, h);
+  g.fillStyle = 'rgba(4,8,22,.8)'; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'destination-out';
+  const H = (x, y, r, a) => { if (a <= 0.03 || r < 2) return; g.globalAlpha = Math.min(1, a); g.drawImage(hole, (x - r) / S, (y - r) / S, r * 2 / S, r * 2 / S); };
+  for (const u of B.units) {
+    if (!u.alive || u.x > AW + 40) continue;
+    if (u.kind === 'mech') { H(u.x, u.y, u.r * 2.6, 0.9); const k = u.r * 3.3; H(u.x + Math.cos(u.aim) * k, u.y + Math.sin(u.aim) * k, u.r * 3, 0.5); } // body lights + headlamp throw
+    else H(u.x, u.y, u.r * 1.9, u.boss ? 0.55 : 0.32); // the Hollow glow faintly
+  }
+  for (const L of fx.lights) H(L.x, L.y, L.r * 1.7, L.life / L.max * 1.4);
+  let n = 0;
+  for (const b of B.bullets) { if (++n > 90) break; H(b.x, b.y, b.orb ? 44 : 14, b.orb ? 0.9 : 0.55); }
+  for (const m of B.missiles) if (m.age >= 0) H(m.x, m.y, 30, 0.7);
+  for (const s of B.shells) if (s.t >= 0) H(s.x, s.y - (s.z || 0), 22, 0.5);
+  n = 0;
+  for (const p of fx.P) if ((p.k === 'fire' || p.k === 'glow') && ++n < 100) H(p.x, p.y - (p.z || 0), Math.min(64, (p.s || 8) * 2.2), p.life / p.max);
+  for (const t of fx.trails) H((t.x1 + t.x2) / 2, (t.y1 + t.y2) / 2, Math.hypot(t.x2 - t.x1, t.y2 - t.y1) * 0.55, t.life / t.max);
+  for (const wr of fx.wrecks) if (wr.kind === 'mech' && fx.time - wr.t < 14) H(wr.x, wr.y, wr.r * 2.4, 0.6 * (1 - (fx.time - wr.t) / 14));
+  for (const a of B.acid) H(a.x, a.y, a.r * 1.5, 0.45);
+  for (const u of B.units) if (u.alive) for (const wp of u.weapons) if (wp.beam) { H(wp.beam.x2, wp.beam.y2, 60, 0.85); H((wp.beam.x1 + wp.beam.x2) / 2, (wp.beam.y1 + wp.beam.y2) / 2, 50, 0.5); }
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  ctx.drawImage(c, 0, 0, AW, AH);
+}
+// storms: a haze/visibility tint plus two parallax layers of a pre-drawn streak tile scrolled as a pattern
+const WX_FX = {
+  dust: { c: [150, 104, 58], sc: [240, 206, 156], haze: 0.16, edge: 0.4, vx: 560, vy: 70, len: 40, n: 90, w: 1.5, a: 0.5 },
+  blizzard: { c: [226, 236, 250], haze: 0.14, edge: 0.36, vx: 230, vy: 170, len: 9, n: 120, w: 2.2, a: 0.75 },
+  rain: { c: [168, 188, 212], haze: 0.1, edge: 0.22, vx: -70, vy: 940, len: 24, n: 110, w: 1, a: 0.36, dark: 0.16 },
+  spore: { c: [184, 120, 240], haze: 0.08, edge: 0.26, vx: 16, vy: -12, len: 0, n: 50, w: 2.8, a: 0.5 },
+};
+function wxTile(k) {
+  const key = '_wx' + k; if (SPR[key]) return SPR[key];
+  const S = WX_FX[k], T = 256, c = document.createElement('canvas'); c.width = c.height = T; const g = c.getContext('2d'), q = RNG(hashStr(k));
+  const sp = Math.hypot(S.vx, S.vy) || 1, dx = -S.vx / sp, dy = -S.vy / sp, C = S.sc || S.c, col = `${C[0]},${C[1]},${C[2]}`;
+  for (let i = 0; i < S.n; i++) {
+    const x = q() * T, y = q() * T, a = S.a * (0.4 + q() * 0.6), L = S.len * (0.5 + q());
+    for (const ox of [-T, 0, T]) for (const oy of [-T, 0, T]) {
+      if (S.len) { g.strokeStyle = `rgba(${col},${a.toFixed(2)})`; g.lineWidth = S.w * (0.6 + q() * 0.4); g.beginPath(); g.moveTo(x + ox, y + oy); g.lineTo(x + ox + dx * L, y + oy + dy * L); g.stroke(); }
+      else { const r = S.w * (1 + q() * 1.6), gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r * 2); gr.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(x + ox - r * 2, y + oy - r * 2, r * 4, r * 4); }
+    }
+  }
+  return SPR[key] = c;
+}
+function wxHaze(k) { // map-sized tint that thickens toward the edges: "you can't see far"
+  const key = '_wxh' + k; if (SPR[key]) return SPR[key];
+  const S = WX_FX[k], c = document.createElement('canvas'); c.width = AW / 4; c.height = AH / 4; const g = c.getContext('2d'), col = `${S.c[0]},${S.c[1]},${S.c[2]}`;
+  const gr = g.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.25, c.width / 2, c.height / 2, c.width * 0.62);
+  gr.addColorStop(0, `rgba(${col},${S.haze})`); gr.addColorStop(1, `rgba(${col},${S.edge})`); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height);
+  if (S.dark) { g.fillStyle = `rgba(10,14,22,${S.dark})`; g.fillRect(0, 0, c.width, c.height); }
+  return SPR[key] = c;
+}
+function drawWeather(ctx, B, fx) {
+  const k = B.wxKey, S = WX_FX[k]; if (!S) return;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, AW, AH); ctx.clip(); // keep the streaks on the map
+  ctx.drawImage(wxHaze(k), 0, 0, AW, AH);
+  if (!fx.wxPat) fx.wxPat = ctx.createPattern(wxTile(k), 'repeat');
+  const T = 256, t = fx.reduce ? 0 : fx.time;
+  for (const [sc, spd, al] of [[1, 1, 0.9], [1.8, 1.6, 0.55]]) {
+    const P = T * sc, ox = ((t * S.vx * spd) % P + P) % P, oy = ((t * S.vy * spd) % P + P) % P;
+    ctx.save(); ctx.globalAlpha = al; ctx.translate(ox - P, oy - P); ctx.scale(sc, sc); ctx.fillStyle = fx.wxPat;
+    ctx.fillRect(0, 0, (AW + P * 2) / sc, (AH + P * 2) / sc); ctx.restore();
+  }
+  ctx.restore();
+  if (k === 'rain') { // distant lightning
+    if (!fx.reduce && fx.time - (fx.boltT || 0) > 6 && Math.random() < 0.004) fx.boltT = fx.time;
+    const e = fx.time - (fx.boltT || -99); if (e < 0.35) { ctx.fillStyle = `rgba(220,230,255,${(0.22 * (1 - e / 0.35) * (e < 0.08 || e > 0.16 ? 1 : 0.3)).toFixed(3)})`; ctx.fillRect(0, 0, AW, AH); }
+  }
+}
+
+/* ---------- battle radio chatter ---------- */
+// cosmetic only: driven by B.events and a light per-frame scan, picks lines with Math.random (never the battle RNG)
+const BARKS = {
+  Hotblood: { kill: ['Scratch one! Who\'s next?', 'That\'s how it\'s done!', 'Down you go!'], hurt: ['That all you got?!', 'Lucky shot. My turn.', 'Oh, now I\'m mad.'], ally: ['They\'ll pay for that!', 'No! I\'m taking them ALL down!'], melee: ['Get in here!', 'Face me up close!', 'Blade\'s hungry!'], low: ['Still standing! Still swinging!', 'Armor\'s just paint anyway!'], win: ['Too easy! Mop it up!', 'They\'re breaking, push!'], lose: ['I don\'t do retreat!', 'Come on, I\'ll take you all!'], wave: ['More? Good!', 'Fresh meat on the right!'] },
+  Stoic: { kill: ['Target down.', 'One less.', 'Confirmed.'], hurt: ['Taking fire.', 'Hit. Still operational.', 'Noted.'], ally: ['Understood. Continuing.', 'We lost one. Hold formation.'], melee: ['Engaging.', 'Close quarters.', 'Contact.'], low: ['Systems critical. Holding.', 'Armor failing. Not done.'], win: ['Field is ours. Finish it.', 'Last of them.'], lose: ['Alone now. Fine.', 'Hold. Just hold.'], wave: ['Reinforcements, east.', 'New contacts.'] },
+  Prodigy: { kill: ['Called it. Textbook.', 'Did you see that angle?', 'Kill confirmed! Logging it.'], hurt: ['Ow! That wasn\'t in the sim!', 'Recalculating!', 'Okay, okay, adapting!'], ally: ['That is not supposed to happen...', 'No, no, no, I can fix this!'], melee: ['Close range, run the drill!', 'In the pocket!'], low: ['Red everywhere. Is that bad? That\'s bad.', 'I can still pull this off!'], win: ['Right on schedule!', 'We\'ve got the numbers now!'], lose: ['The models said... forget the models!', 'I need a plan. I need a plan!'], wave: ['New signatures! Lots of them!', 'Second wave, adjusting!'] },
+  Veteran: { kill: ['Seen worse. Next.', 'Stay down.', 'That\'s one for the board.'], hurt: ['Had worse in the Circuit.', 'Just a scratch. Keep moving.', 'They found my range.'], ally: ['Man down. Eyes up, everyone.', 'Mourn later. Fight now.'], melee: ['Old-fashioned way, then.', 'Steady hands, steel close.'], low: ['Not my first time on fumes.', 'Getting too old for this.'], win: ['Clean it up. Nobody gets cocky.', 'That\'s the fight. Finish it right.'], lose: ['Rally on me. We\'re not done.', 'Steady. Breathe. Aim.'], wave: ['Second wave. Saw it coming.', 'Here comes the real fight.'] },
+  Idealist: { kill: ['That\'s for the settlements.', 'It had to be done.', 'Target neutralized.'], hurt: ['I\'m fine, keep the line!', 'Cover the others, not me!'], ally: ['They deserved better than this.', 'We hold. For them.'], melee: ['Stand your ground!', 'Here I stand!'], low: ['If I fall, keep going.', 'Not yet. People are counting on us.'], win: ['We did it, together!', 'Almost there, hold true!'], lose: ['Someone has to stand here. It\'s me.', 'I won\'t run.'], wave: ['More of them... we hold.', 'Stay together!'] },
+  Mercenary: { kill: ['Cha-ching.', 'That\'s a bonus.', 'Paid in full.'], hurt: ['Repairs come out of the contract!', 'That\'ll cost somebody.', 'Hey, this paint was expensive!'], ally: ['Their share goes in the pot. Focus.', 'Damn. That\'s a bad trade.'], melee: ['Up close and billable.', 'Overtime rates apply.'], low: ['Not paid enough to die here.', 'Requesting hazard pay. Now.'], win: ['Payday\'s in sight!', 'Wrap it up, I\'ve got a tab to settle.'], lose: ['This contract\'s underwater.', 'Nobody pays dead pilots.'], wave: ['More targets, more money.', 'Should\'ve charged double.'] },
+  Haunted: { kill: ['Another ghost for the pile.', 'Rest.', 'It\'s done.'], hurt: ['Pain\'s familiar.', 'I feel it. Good.'], ally: ['Not again... not again.', 'I can see their face already.'], melee: ['Come close. Let\'s end it.', 'Into the dark.'], low: ['So this is how it goes.', 'I\'ve been here before.'], win: ['Quiet soon. Finally quiet.', 'It\'s almost over.'], lose: ['Everyone leaves eventually.', 'Just me and the dark again.'], wave: ['They never stop coming.', 'More shadows.'] },
+  Cheerful: { kill: ['Got one! Woo!', 'Bye-bye!', 'Nailed it!'], hurt: ['Ouch! Still smiling!', 'Okay, that tickled. A lot.'], ally: ['We\'ll get you home, I promise!', 'Stay with us, please!'], melee: ['Hi there! Bye there!', 'Hug time!'], low: ['Little banged up! Totally fine!', 'Who needs a left arm anyway?'], win: ['We\'re winning! Group hug after!', 'Almost done, team!'], lose: ['We can still turn this around!', 'Smile, we\'ve got this!'], wave: ['Ooh, more guests! Hostile guests!', 'Incoming party!'] },
+};
+const FAC_BARKS = {
+  raiders: { kill: ['Scrap for the clan!', 'Strip it for parts!', 'Another tin can down!'], hurt: ['You\'ll pay for that paint!', 'Lucky shot, guild dog!'], taunt: ['Nice mech. It\'s mine now.', 'Leave the salvage and run!', 'The wastes belong to the clans!', 'Shiny guild boys bleed like anyone!'], lose: ['Pull back! Pull back!', 'Not worth it! Scatter!'], wave: ['The clan is here!', 'Hit them from the flank!'] },
+  ghost: { kill: ['TARGET TERMINATED.', 'THREAT REMOVED.', 'LOSS PROJECTION: ACCEPTABLE.'], hurt: ['DAMAGE NOTED.', 'INTEGRITY FALLING.', 'REROUTING.'], taunt: ['TARGET ACQUIRED.', 'YOU ARE CATALOGUED.', 'ENGAGEMENT AUTHORIZED.', 'PROTOCOL: ERASE.'], lose: ['RETREAT VECTOR NULL.', 'DIRECTIVE PERSISTS.'], wave: ['REINFORCEMENT ONLINE.', 'NODE JOINING.'] },
+  hollow: { any: ['kkhhzzt-', '//// ////', '...tik...tik...tik', 'sss-SSS-sss', '#%&#'] },
+};
+const pickR = a => a[Math.floor(Math.random() * a.length)];
+function barkArch(B, u) {
+  if (u._arch !== undefined) return u._arch;
+  let a = null;
+  const al = (B.cfg.allies || []).find(x => x.pilot && x.pilot.id === u.pilotId);
+  if (al) a = al.pilot.arch; else for (const wv of B.cfg.waves || []) for (const s of wv) if (s.pilot && s.pilot.id === u.pilotId) a = s.pilot.arch;
+  return u._arch = a;
+}
+function barkLine(B, u, ev) {
+  if (u.kind === 'bug') return (ev === 'hurt' || ev === 'kill' || ev === 'wave') && (u.boss || Math.random() < 0.5) ? pickR(FAC_BARKS.hollow.any) : null;
+  if (u.team === 1 && FAC_BARKS[u.faction]) { const L = FAC_BARKS[u.faction][ev]; return L && Math.random() < 0.7 ? pickR(L) : null; }
+  const a = u.kind === 'mech' ? barkArch(B, u) : null, L = a && BARKS[a] && BARKS[a][ev];
+  return L ? pickR(L) : null;
+}
+function barkInit(fx) { fx.barks = []; fx.rt = 0; fx.barkLast = -9; fx.barkNext = 1.2; }
+function bark(B, fx, u, ev, pri) {
+  if (!fx || !fx.barks || !u) return false;
+  const now = fx.rt;
+  if (now < (pri ? fx.barkLast + 0.7 : fx.barkNext) || (u._barkT || 0) > now) return false;
+  const txt = barkLine(B, u, ev); if (!txt) return false;
+  fx.barks.push({ u, x: u.x, y: u.y, r: u.r, txt, t0: now, life: 2.6, team: u.team, fac: u.kind === 'bug' ? 'hollow' : u.team === 1 ? u.faction : null });
+  if (fx.barks.length > 3) fx.barks.shift();
+  fx.barkLast = now; fx.barkNext = now + 1.5; u._barkT = now + 6;
+  return true;
+}
+function barkEvents(B, fx) { // after every sim step: react to this step's events
+  if (!fx || !fx.barks || !B.events.length) return;
+  for (const ev of B.events) {
+    if (ev.type === 'kill') {
+      const v = ev.u, s = ev.src;
+      if (v.team === 0 && v.kind === 'mech') {
+        const as = B.units.filter(o => o.alive && o.team === 0 && o.kind === 'mech');
+        if (as.length) bark(B, fx, as.reduce((b, o) => dist(o, v) < dist(b, v) ? o : b), 'ally', true);
+        if (s && s.alive && s.team === 1) bark(B, fx, s, 'kill');
+      } else if (s && s.alive && s.team !== v.team && Math.random() < 0.75) bark(B, fx, s, 'kill');
+    } else if (ev.type === 'wave') {
+      const es = B.units.filter(o => o.alive && o.team === 1 && (o.kind === 'mech' || o.boss)), as = B.units.filter(o => o.alive && o.team === 0);
+      if (es.length && Math.random() < 0.4) bark(B, fx, pickR(es), 'wave', true); else if (as.length) bark(B, fx, pickR(as), 'wave', true);
+    }
+  }
+}
+function barkScan(B, fx, dt) { // once a frame (real time): age barks, look for hurt / low / melee / momentum moments
+  if (!fx || !fx.barks) return;
+  const now = fx.rt += dt;
+  for (let i = fx.barks.length - 1; i >= 0; i--) { const b = fx.barks[i]; if (b.u.alive) { b.x = b.u.x; b.y = b.u.y; } if (now - b.t0 > b.life) fx.barks.splice(i, 1); }
+  if ((fx.barkScanT = (fx.barkScanT || 0) - dt) > 0) return;
+  fx.barkScanT = 0.2;
+  let n0 = 0, n1 = 0;
+  for (const u of B.units) if (u.alive) { if (u.team === 0) n0++; else if (u.x < AW + 10) n1++; }
+  for (const u of B.units) {
+    if (!u.alive || (u.kind !== 'mech' && !u.boss && u.bug !== 'carapace')) continue;
+    const hp = hpPct(u);
+    if (u._hpW == null || now - u._hpWT > 1.5) { u._hpW = hp; u._hpWT = now; }
+    else if (u._hpW - hp > 0.2 && bark(B, fx, u, 'hurt')) u._hpW = hp;
+    if (u.kind !== 'mech') continue;
+    if (hp < 0.3 && !u._lowSaid && bark(B, fx, u, 'low')) u._lowSaid = true;
+    if (u.target && u.target.alive && u._melT !== u.target && u.weapons.some(w => w.T.kind === 'melee' && w.swingT > 0) && bark(B, fx, u, 'melee')) u._melT = u.target;
+    if (u.team === 1 && u.target && Math.random() < 0.012) bark(B, fx, u, 'taunt');
+  }
+  const allies = B.units.filter(o => o.alive && o.team === 0 && o.kind === 'mech');
+  if (!fx._wl && !B.waves.length && n0 >= 2 && n1 === 1 && B.t > 8 && allies.length && bark(B, fx, pickR(allies), 'win')) fx._wl = 1;
+  if (!fx._ll && n0 === 1 && n1 >= 2 && allies.length && bark(B, fx, allies[0], 'lose', true)) fx._ll = 1;
+  if (!fx._rl && n1 === 1 && n0 >= 2) { const e = B.units.find(o => o.alive && o.team === 1 && o.kind === 'mech'); if (e && bark(B, fx, e, 'lose')) fx._rl = 1; }
+  if (B.endT && B.win && !fx._end) { fx._end = 1; if (allies.length) bark(B, fx, pickR(allies), 'win', true); }
+}
+function drawBarks(ctx, B, fx) {
+  const z = fx.cam.z || 1, fs = clamp(12.5 / z, 7, 36), now = fx.rt;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+  const placed = [];
+  for (const b of fx.barks) {
+    const age = now - b.t0, a = Math.min(1, age / 0.15, (b.life - age) / 0.6); if (a <= 0) continue;
+    const ghost = b.fac === 'ghost', hol = b.fac === 'hollow';
+    let txt = b.txt;
+    if (hol) txt = txt.replace(/[a-z]/g, ch => Math.random() < 0.25 ? '#%/&-'[Math.floor(Math.random() * 5)] : ch); // static on the channel
+    ctx.font = `${ghost ? '600' : 'italic 600'} ${fs.toFixed(1)}px ${ghost ? 'ui-monospace, Consolas, monospace' : 'Chakra Petch, sans-serif'}`;
+    const tw = ctx.measureText(txt).width, x = clamp(b.x, tw / 2 + 6, AW - tw / 2 - 6);
+    let y = Math.max(fs + 4, b.y - (b.r || 16) - 18 - fs * 0.85 - (1 - Math.min(1, age / 0.25)) * 4);
+    for (let k = 0; k < 4 && placed.some(p => Math.abs(p[0] - x) < (p[2] + tw) / 2 && Math.abs(p[1] - y) < fs * 1.1); k++) y -= fs * 1.15; // stack, don't overlap
+    placed.push([x, y, tw]);
+    ctx.globalAlpha = a; ctx.lineWidth = Math.max(2, fs * 0.3); ctx.strokeStyle = 'rgba(4,6,10,.85)'; ctx.strokeText(txt, x, y);
+    ctx.fillStyle = b.team === 0 ? '#BFE3FF' : ghost ? '#8FF3FF' : hol ? '#D6B4FF' : b.fac === 'raiders' ? '#FFC38A' : '#F2B4B4';
+    ctx.fillText(txt, x, y);
+  }
+  ctx.globalAlpha = 1;
 }
 
 const PMAX = 72; // largest soft-sprite radius drawn (world px); oversized soft sprites were the main fill-rate cost
@@ -4803,7 +5050,9 @@ function newGame(setup) {
     pilots: [], mechs: [], inventory: [], facilities: { hangar: 1, workshop: 1, medbay: 1, simpods: 1, command: 1, mess: 1, scout: 1 }, building: null,
     contracts: [], exp: { A: null, B: null }, rivals: [], fa: [], market: [], log: [], events: [], series: null, over: null,
     doctrine: { A: 'balanced', B: 'balanced' }, perkQ: [], debtWeeks: 0, memorial: [], seasonsPlayed: 0, champion: false, lastEvent: 0, stats: { battles: 0, wins: 0, kia: 0 },
+    news: [], codex: {}, standing: {}, chain: null, chainsDone: [], trend: null,
   };
+  codexBasics();
   const used = new Set();
   for (let i = 0; i < 7; i++) G.rivals.push(makeRival(R, 0, used));
   if (setup.history === 'smuggler') { G.inventory.push({ k: 'missiles', t: 2, id: uid() }, { k: 'plating', t: 2, id: uid() }, { k: 'jets', t: 1, id: uid() }); }
@@ -4835,6 +5084,7 @@ function startCareer() {
   for (let i = 0; i < 6; i++) G.contracts.push(makeContract(R, G.tier));
   refreshFreeAgents(); refreshMarket();
   log(`${G.name} registered with the Guild Concordat in the ${TIERS[0]}.`, 'good');
+  news(`New guild ${G.name} registers in the ${TIERS[0]}`);
   autosave();
 }
 
@@ -4939,13 +5189,16 @@ function advanceDay() {
   // monthly
   if (G.day % 28 === 0) monthly();
   // contracts
+  chainExpiry();
   G.contracts = G.contracts.filter(c => c.expires >= G.day);
   while (G.contracts.length < 6) G.contracts.push(makeContract(R, G.tier));
+  newsDaily();
   // league
   if (G.day === BRACKET_DAY) setupBracket();
   if (G.day === SERIES_DAY && G.series && !G.series.done) stops.push('series');
   // events
   if (G.day - G.lastEvent >= 2 && R.chance(0.28)) { const ev = rollEvent(); if (ev) { G.events.push(ev); G.lastEvent = G.day; stops.push('event'); } }
+  if (chainDaily()) stops.push('event');
   checkGameOver();
   if (G.over) stops.push('over');
   return stops;
@@ -4969,7 +5222,8 @@ function weekly() {
     p.morale = clamp(p.morale + G.facilities.mess * 2 + (p.morale < 55 ? 2 : -1) + (G.history === 'pilot' ? 1 : 0), 0, 100);
     if (p.arch === 'Hotblood' && p.squad === 'R') p.morale -= 4;
   }
-  for (const r of G.rivals) r.rep += Math.round(R.range(4, 15) * (1 + (r.str - tierBase(G.tier)) / 25));
+  const gains = G.rivals.map(r => { const g = Math.round(R.range(4, 15) * (1 + (r.str - tierBase(G.tier)) / 25)); r.rep += g; return g; });
+  newsWeekly(gains);
 }
 function monthly() {
   const wages = alivePilots().reduce((s, p) => s + p.wage, 0);
@@ -5047,6 +5301,7 @@ function finishExpedition(sq) {
   log(`Squad ${sq} returned: +${fmt(pay)} credits, ${rep >= 0 ? '+' : ''}${rep} rep, +${sal} salvage.`, e.success ? 'good' : 'bad');
   G.exp[sq] = null;
   G.lastReturn = { sq, pay, rep, sal, success: e.success };
+  if (e.c.chain) chainResult(e);
 }
 function nodeSalvage(e) { const v = R.int(6, 14) + (e.c.type === 'salvage' ? 8 : 0); e.salvage += v; return v; }
 function nodeRest(e) {
@@ -5096,6 +5351,7 @@ function applyBattle(res, ctx) {
     const hit = p.arch === 'Cheerful' ? 22 : p.arch === 'Haunted' ? 18 : p.arch === 'Stoic' ? 6 : 12;
     p.morale = clamp(p.morale - hit * deadNames.length, 0, 100);
   }
+  newsBattle(res, out, ctx);
   return out;
 }
 
@@ -5138,6 +5394,7 @@ function seriesResult(win) {
     } else if (s.kind === 'relegation') s.outcome = 'You survived relegation.';
     else if (s.kind === 'final') { s.outcome = s.won ? 'APEX CHAMPIONS!' : 'Runners-up in the Apex Circuit.'; if (s.won) G.champion = true; }
     log(s.outcome, s.won ? 'good' : 'bad');
+    news(`${G.name} vs ${s.opp.name}: ${s.outcome}`, s.won ? 'good' : 'bad');
     G.rep += s.won ? 15 : 0;
   }
 }
@@ -5161,7 +5418,10 @@ function endSeason() {
     }
   }
   for (const p of leaving) { releasePilot(p, true); log(`${pilotName(p)} left the guild when their contract ran out.`, 'bad'); }
-  G.contracts = []; for (let i = 0; i < 6; i++) G.contracts.push(makeContract(R, G.tier));
+  G.contracts = G.contracts.filter(c => c.chain); for (const c of G.contracts) c.expires = 14; // story jobs carry over
+  while (G.contracts.length < 6) G.contracts.push(makeContract(R, G.tier));
+  G.trend = null; G.newsLead = null; G.newsPos = null;
+  news(`Season ${G.season} opens: ${G.rivals.length + 1} guilds register for the ${TIERS[G.tier]}`);
   log(`Season ${G.season} begins in the ${TIERS[G.tier]}${moved ? ' (new tier)' : ''}.`, 'good');
 }
 function releasePilot(p, free) {
@@ -5250,7 +5510,291 @@ function applyEvent(ev, ch) {
       if (win) { G.rep += 5; if (f.prize) G.credits += f.prize; p.morale = clamp(p.morale + 8, 0, 100); addXP(p, 40); toast(`${p.call} won!${f.prize ? ` +${fmt(f.prize)} cr,` : ''} +5 rep`); log(`${p.call} won a public sim duel.`, 'good'); }
       else { p.morale = clamp(p.morale - 6, 0, 100); addXP(p, 15); toast(`${p.call} lost the duel.`); log(`${p.call} lost a public sim duel.`, 'bad'); } } }
   if (f.item) { const k = R.pick(Object.keys(MODULES)); G.inventory.push({ k, t: clamp(G.facilities.workshop, 1, 3), id: uid() }); log(f.free ? `Recovered a ${MODULES[k].name} from the cache.` : `Bought a ${MODULES[k].name} from the scrapper.`); }
+  if (f.chainStart) startChain(f.chainStart);
+  if (f.chainDecline) { G.chainLast = absDay(); log(`Turned down ${PATRONS[CHAINS[f.chainDecline].patron].name}.`); }
+  if (f.chainPick !== undefined) chainPick(f.chainPick);
+  if (f.chainQuit) chainEnd(false, 'You walked away from the job.');
+  if (f.chainClose) chainClose(f.chainClose);
   log(`${ev.title}: ${ev.choices[ch].t}.`);
+}
+
+/* ================= NEWS FEED ================= */
+// headlines persist in G.news (newest first). Picks use a day-seeded RNG so the world RNG sequence is untouched.
+function absDay() { return (G.season - 1) * SEASON_DAYS + G.day; }
+function news(txt, kind = '') { if (!G) return; if (!G.news) G.news = []; G.news.unshift({ d: G.day, s: G.season, txt, kind }); if (G.news.length > 40) G.news.length = 40; }
+function newsRng(tag) { return RNG(hashStr(`${G.seed}:${G.season}:${G.day}:${tag}`)); }
+function fillNews(t, o) { return t.replace(/\{(\w)\}/g, (m, k) => o[k] ?? ''); }
+function ordinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+const TREND_NEWS = {
+  raiders: ['Raider activity rising near {r}', 'Clan war-bands sighted on the roads outside {r}', 'Convoys rerouted around {r} after a string of clan ambushes'],
+  ghost: ['Ghost Frame signal traffic spiking over {r}', 'Survey drones going dark one by one near {r}', 'Concordat warns of unregistered frames moving through {r}'],
+  hollow: ['Seismic tremors under {r}: rift-watchers fear a new breach', 'Hollow spoor found in the water tables near {r}', 'Livestock vanishing around {r}; locals blame the Hollow'],
+};
+const RIVAL_WIN_NEWS = ['{g} close out {c} work near {r} (+{n} rep)', '{g} sweep {r} clean and bank {n} rep', '{g} land a fat retainer after a clean run in {r} (+{n} rep)', 'Feed favourites {g} roll through {r} without a scratch (+{n} rep)'];
+const RIVAL_LOSS_NEWS = ['{g} limp home from {r} with two frames on the trailer', '{g} pilot hospitalized after a botched drop near {r}', 'Sponsors grumble as {g} come back empty-handed from {r}'];
+const FLAVOR_NEWS = [
+  'Concordat auditors fine three Salvage League guilds for undeclared salvage', 'Coolant prices climb again after a refinery fire on the coast', 'Rift-watch stations report a quiet week. Nobody believes it.',
+  'Settlement council elections postponed as militias stay on alert', 'Feed ratings for sanctioned matches hit a season high', 'A retired Apex pilot opens a sim-pod school; waiting list already full',
+  'Scrap haulers strike over salvage rates; market stock runs thin', 'Meridian Spire announces record quarter, declines to explain where', 'Brass Wheel Caravan spotted turning north for the first time in years',
+  'Carrier Command extends drop windows for registered guilds', 'Old militia bunker found under Teller Heights. Sealed. Staying sealed.', 'Concordat registry passes four hundred active guilds',
+];
+function newsDaily() {
+  const nr = newsRng('day');
+  if (G.trend && G.day > G.trend.until) G.trend = null;
+  if (!G.trend && G.day >= 3 && G.day < SEASON_DAYS - 6 && nr() < 0.17) {
+    const fac = nr.pick(['raiders', 'ghost', 'hollow', 'raiders']);
+    const biome = fac === 'hollow' ? nr.pick(['hive', 'hive', 'waste', 'ice']) : nr.pick(['waste', 'city', 'ice']);
+    const region = nr.pick(REGIONS[biome]);
+    G.trend = { fac, biome, region, from: G.day + 1 + nr.int(0, 1), until: G.day + 9 };
+    news(fillNews(nr.pick(TREND_NEWS[fac]), { r: region }), 'warn');
+  } else if (G.trend && !G.trend.hit && G.day >= G.trend.from) {
+    // the rumour pays off: work in that region shows up on the board
+    const T = G.trend; T.hit = true;
+    const c = makeContract(R, G.tier);
+    c.fac = T.fac; c.biome = T.biome; c.region = T.region; if (c.type === 'rift' && T.fac !== 'hollow') c.type = 'exterminate'; c.weather = rollWeather(c.biome, c.seed);
+    const free = G.contracts.filter(x => !x.chain).sort((a, b) => a.expires - b.expires)[0];
+    if (free && G.contracts.length >= 6) G.contracts.splice(G.contracts.indexOf(free), 1);
+    G.contracts.unshift(c);
+    news(`Concordat posts ${CONTRACT_TYPES[c.type].name.toLowerCase()} work in ${T.region}`);
+  } else if (nr() < 0.2) { const seen = new Set((G.news || []).slice(0, 20).map(n => n.txt)), pool = FLAVOR_NEWS.filter(t => !seen.has(t)); if (pool.length) news(nr.pick(pool)); }
+}
+function newsWeekly(gains) {
+  if (!G.rivals.length) return;
+  const nr = newsRng('wk'), rg = () => nr.pick(REGIONS[nr.pick(Object.keys(REGIONS))]);
+  let bi = 0, li = 0; gains.forEach((g, i) => { if (g > gains[bi]) bi = i; if (g < gains[li]) li = i; });
+  news(fillNews(nr.pick(RIVAL_WIN_NEWS), { g: G.rivals[bi].name, r: rg(), n: gains[bi], c: nr.pick(['extermination', 'salvage', 'defense', 'bounty', 'rift-closure']) }));
+  if (li !== bi && nr() < 0.5) news(fillNews(nr.pick(RIVAL_LOSS_NEWS), { g: G.rivals[li].name, r: rg() }));
+  const st = standings(), pos = st.findIndex(r => r.me), lead = st[0].name;
+  if (G.newsLead && lead !== G.newsLead) news(`${lead} now lead the ${TIERS[G.tier]} standings`, st[0].me ? 'good' : '');
+  else if (G.newsPos != null && pos !== G.newsPos) news(pos < G.newsPos ? `${G.name} climb to ${ordinal(pos + 1)} in the ${TIERS[G.tier]}` : `${G.name} slip to ${ordinal(pos + 1)} in the ${TIERS[G.tier]}`, pos < G.newsPos ? 'good' : 'bad');
+  G.newsLead = lead; G.newsPos = pos;
+}
+function newsBattle(res, out, ctx) { // your pilots' deeds
+  const where = ctx && ctx.exp ? ` near ${regionOf(ctx.exp.c)}` : ctx && ctx.sanctioned ? ' on the sanctioned field' : '';
+  for (const p of out.deaths) news(`${G.name} mourn ${pilotName(p)}, killed in action${where}`, 'bad');
+  for (const u of res.units) {
+    const p = pilotById(u.pilotId); if (!p || !p.alive) continue;
+    const k1 = p.kills, k0 = k1 - u.st.kills, T = [5, 10, 25, 50, 100].find(t => k0 < t && k1 >= t);
+    if (T) news(T === 5 ? `${p.call} of ${G.name} makes ace with a fifth confirmed kill` : `${p.call} of ${G.name} logs confirmed kill number ${T}`, 'good');
+    else if (u.st.kills >= 4) news(`${p.call} downs ${u.st.kills} hostiles in a single sortie${where}`, 'good');
+  }
+}
+function tickerHTML() {
+  const items = (G.news || []).slice(0, 12);
+  if (!items.length) return '';
+  const one = items.map(n => `<span class="tk ${n.kind}"><b>D${n.d}</b>${esc(n.txt)}</span><i>//</i>`).join('');
+  const dur = Math.max(28, items.reduce((s, n) => s + n.txt.length + 8, 0) * 0.17).toFixed(0);
+  return `<button class="ticker" data-act="newsLog" title="Open the news feed"><span class="tlab">FEED</span><span class="tmask"><span class="trun" style="animation-duration:${dur}s">${one}${one}</span></span></button>`;
+}
+
+/* ================= STORY CHAINS ================= */
+// a patron offers a 3-4 part job; each part is a contract with a briefing, and one part forces a choice with consequences
+const PATRONS = {
+  town: { name: "Marrow's Rest Council", codex: 'p_town' },
+  caravan: { name: 'The Brass Wheel Caravan', codex: 'p_caravan' },
+  carrier: { name: 'Carrier Command', codex: 'p_carrier' },
+  arcology: { name: 'Meridian Spire Holdings', codex: 'p_arcology' },
+};
+const CHAINS = {
+  wells: { patron: 'town', name: 'The Dry Wells', intro: "Elder Sefa Okonkwo-Marr of Marrow's Rest asks for your guild by name. Someone is draining the town's deep wells one pump station at a time, and the militia keeps coming home empty-handed.",
+    parts: [
+      { type: 'exterminate', fac: 'raiders', biome: 'waste', region: 'Marrow Wells', lvl: -4, brief: 'Clan scavengers have dug in around the eastern pump stations. Drive them off and get the pumps turning before the cisterns run dry.' },
+      { type: 'salvage', fac: 'raiders', biome: 'waste', region: 'Saltjaw Basin', lvl: 0, brief: 'The raiders were not stealing water to drink. Your squad found tanker crawlers in Saltjaw Basin, half full and stamped with the seal of a Concordat survey company.',
+        choice: { text: "The survey foreman offers the guild a cut of the water sales to forget what you saw. The Council would want to know. Either way, the crawlers need recovering.",
+          opts: [{ t: 'Report the survey company to the Council (+5 rep)', tag: 'clean', fx: { rep: 5, stand: 1 }, react: { Idealist: 6, Veteran: 2, Mercenary: -3 } },
+            { t: 'Take the cut and keep quiet (+2,400 cr)', tag: 'dirty', fx: { cr: 2400, stand: -1, lvl: 3 }, react: { Idealist: -10, Veteran: -3, Haunted: -2, Mercenary: 6 } }] } },
+      { type: 'defense', fac: 'raiders', biome: 'waste', region: 'Marrow Wells', lvl: 5, brief: 'Old Saltjaw, chief of the clan that worked the pumps, is bringing every frame he has to the wells. Hold the stations until his war-band breaks.',
+        alt: { dirty: "With nobody warned about the survey company's water deal, Old Saltjaw has gone desperate. He is bringing every frame he has, and more than he had last week. Hold the wells." } },
+    ],
+    end: { clean: "The Council seized the survey company's crawlers and opened the cisterns to the outlying farms. Elder Okonkwo-Marr hangs your banner in the meeting hall.", dirty: 'The wells are running again and nobody in Marrow\'s Rest knows where the water went. The survey company sends a thank-you note with no name on it.' } },
+  haul: { patron: 'caravan', name: 'Long Haul', intro: 'Caravan master Ilse Varga of the Brass Wheel has a hauler down on the Pale Shelf and a buyer waiting at the end of the road. She needs escorts who can keep their mouths shut.',
+    parts: [
+      { type: 'salvage', fac: 'hollow', biome: 'ice', region: 'the Pale Shelf', lvl: -3, brief: 'Hauler Nine went through the ice with its cargo sealed, and the Hollow have found the wreck. Clear them out and recover the cargo pods.' },
+      { type: 'bounty', fac: 'raiders', biome: 'city', region: 'Port Lacuna', lvl: 2, ace: 'Gideon "Tallow" Rourke', brief: 'One of the recovered pods is warm. Packed inside in gel are a dozen Hollow egg-sacs, very much alive. The buyer is a Port Lacuna broker named Tallow, and he has already sent frames to collect.',
+        choice: { text: 'Ilse says the eggs are worth more than the rest of the cargo combined. Burning them means the caravan eats the loss. Either way, Tallow will not let it go.',
+          opts: [{ t: 'Burn the egg-sacs on the ice (+6 rep, less pay)', tag: 'clean', fx: { rep: 6, stand: -1, payMul: 0.85 }, react: { Idealist: 6, Haunted: 3, Mercenary: -5 } },
+            { t: 'Deliver them and collect (+3,000 cr, bigger later jobs)', tag: 'dirty', fx: { cr: 3000, rep: -4, stand: 1, payMul: 1.2, lvl: 4 }, react: { Idealist: -10, Haunted: -4, Cheerful: -3, Mercenary: 6 } }] } },
+      { type: 'rift', fac: 'hollow', biome: 'hive', region: 'the Underbloom', lvl: 4, brief: 'Burning the sacs drew something. A fresh rift has split open off the Pale Shelf, right beside the Brass Wheel\'s route. Close it.',
+        alt: { dirty: "Tallow's eggs hatched in a Port Lacuna warehouse. The brood burrowed into the Underbloom beneath the docks and tore open a rift. The caravan wants it closed before anyone traces the cargo." } },
+    ],
+    end: { clean: 'The Brass Wheel rolls on, lighter by one cargo and heavier by one debt to your guild. Ilse Varga drinks to your banner every night for a week.', dirty: "The caravan's ledgers balance. Port Lacuna's dock district is quarantined for a season. Ilse Varga never mentions the eggs again, and neither do you." } },
+  star: { patron: 'carrier', name: 'Falling Star', intro: "Carrier Command aboard the CSV Anselm's Reach reports a relay satellite down in the old city of Teller Heights. The hardware is classified. Ghost Frames got there first.",
+    parts: [
+      { type: 'exterminate', fac: 'ghost', biome: 'city', region: 'Teller Heights', lvl: -2, brief: 'The relay came down across three city blocks and Ghost Frames have formed a perimeter around the wreck. Break it.' },
+      { type: 'salvage', fac: 'ghost', biome: 'ice', region: 'Rime Station', lvl: 1, brief: "The frames dragged the relay's core to a dead militia depot at Rime Station. Your scouts find it wired into a Ghost Frame targeting array and still broadcasting.",
+        choice: { text: 'Command wants the core back intact. Meridian Spire agents have quietly offered triple its value for the targeting code it has absorbed. You could also just slag it.',
+          opts: [{ t: 'Return the core to Command untouched (+4 rep)', tag: 'clean', fx: { rep: 4, stand: 2 }, react: { Veteran: 4, Stoic: 2, Idealist: 3 } },
+            { t: 'Copy the code for Meridian first (+3,500 cr)', tag: 'dirty', fx: { cr: 3500, stand: -2 }, react: { Idealist: -8, Veteran: -4, Mercenary: 6 } },
+            { t: 'Wipe the core so nobody gets it', tag: 'ruthless', fx: { rep: 2, stand: -1 }, react: { Haunted: 4, Hotblood: 3, Mercenary: -3 } }] } },
+      { type: 'defense', fac: 'ghost', biome: 'ice', region: 'Rime Station', lvl: 4, brief: 'The array was a beacon. Every Ghost Frame within a hundred kilometres is converging on Rime Station. Hold until the dropship window opens.' },
+      { type: 'bounty', fac: 'ghost', biome: 'city', region: 'Ninefold Junction', lvl: 7, ace: 'Command frame CHOIR', brief: 'One frame coordinated the convergence: a command unit the old militia called CHOIR. Command has its last position at Ninefold Junction. End it.' },
+    ],
+    end: { clean: 'Command logs the relay recovered and the CHOIR network silenced. Your guild is cleared for priority drop windows, a courtesy the carrier extends to very few.', dirty: 'Command logs the relay recovered. Three weeks later Meridian Spire unveils a line of security frames with suspiciously perfect aim.', ruthless: 'The core is slag and the CHOIR network is silent. Command is annoyed, Meridian is furious, and the Ghost Frames have one fewer voice.' } },
+  ledger: { patron: 'arcology', name: 'The Glass Ledger', intro: "A Meridian Spire account executive named Dace Holloway wants a bounty brought in quietly. The target stole 'proprietary research data'. The fee is generous. The briefing is very short.",
+    parts: [
+      { type: 'bounty', fac: 'raiders', biome: 'city', region: 'the Glass Ward', lvl: -2, ace: 'Wren "Lockpick" Adeyemi', brief: 'The thief is hiding with a raider crew in the Glass Ward. Bring down her escorts and take her alive. Meridian is very specific about alive.' },
+      { type: 'exterminate', fac: 'raiders', biome: 'waste', region: 'Dry Mercy', lvl: 1, brief: "Lockpick talks in the back of your dropship. The data is the Spire's own research logs: an off-books Hollow breeding program in the badlands, and the settlements it was quietly tested on.",
+        choice: { text: "Holloway is waiting at the landing pad with your fee. Lockpick's clan is waiting at Dry Mercy with her people, and they will fight whoever comes next.",
+          opts: [{ t: 'Hand her over to Meridian (+3,000 cr)', tag: 'dirty', fx: { cr: 3000, stand: 2 }, react: { Idealist: -12, Haunted: -3, Cheerful: -3, Mercenary: 6 } },
+            { t: 'Let her go and report that she escaped (+5 rep, less pay)', tag: 'clean', fx: { rep: 5, stand: -2, payMul: 0.9 }, react: { Idealist: 8, Cheerful: 3, Mercenary: -4 } }] } },
+      { type: 'rift', fac: 'hollow', biome: 'hive', region: 'Nest Ninety', lvl: 5, brief: "Nest Ninety was the breeding site in the logs. Something has broken containment and Meridian's own security has stopped answering. Close it before it reaches the settlements." },
+    ],
+    end: { dirty: "Meridian Spire pays every invoice on time. The breeding program never existed, according to the press release. Lockpick's name drops off the Concordat registry.", clean: "Lockpick's logs reach the Concordat auditors. Meridian pays a fine it can easily afford and blacklists your account. The settlements near Nest Ninety send a crate of dried fruit with no return address." } },
+};
+function chainBrief(C, P) { return (P.alt && C.tag && P.alt[C.tag]) || P.brief; }
+function chainDaily() { // returns true if it queued an event
+  const ad = absDay(), done = G.chainsDone || [];
+  if (!G.chain) {
+    if (G.events.length || G.day < 4 || G.day > SEASON_DAYS - 10 || ad - (G.chainLast ?? -99) < 14) return false;
+    const nr = newsRng('chain'); if (nr() > 0.15) return false;
+    const open = Object.keys(CHAINS).filter(k => !done.includes(k)); if (!open.length) return false;
+    const mine = open.find(k => CHAINS[k].patron === G.origin), id = mine && nr() < 0.7 ? mine : nr.pick(open), D = CHAINS[id];
+    G.chainLast = ad;
+    G.events.push({ id: 'chain_offer', title: `${PATRONS[D.patron].name}: ${D.name}`, text: `${D.intro} (A ${D.parts.length}-part job.)`, choices: [{ t: 'Hear them out and take the job', fx: { chainStart: id } }, { t: 'Not now', fx: { chainDecline: id } }] });
+    return true;
+  }
+  const C = G.chain;
+  if (!C.cid && C.part < CHAINS[C.id].parts.length && ad >= C.nextDay && !G.events.length && G.day <= SEASON_DAYS - 3) { G.events.push(chainPartEvent()); return true; }
+  return false;
+}
+function chainPartEvent() {
+  const C = G.chain, D = CHAINS[C.id], P = D.parts[C.part];
+  const choices = P.choice ? P.choice.opts.map((o, j) => ({ t: o.t, fx: { chainPick: j } })) : [{ t: 'Take the contract', fx: { chainPick: -1 } }];
+  choices.push({ t: 'Walk away from the job', fx: { chainQuit: 1 } });
+  return { id: 'chain_part', title: `${D.name} · part ${C.part + 1} of ${D.parts.length}`, text: chainBrief(C, P) + (P.choice ? ' ' + P.choice.text : ''), choices };
+}
+function startChain(id) {
+  const D = CHAINS[id];
+  G.chain = { id, part: 0, tag: null, cid: null, nextDay: absDay(), payMul: 1, lvl: 0, tries: 0 };
+  G.standing = G.standing || {}; codexUnlock(PATRONS[D.patron].codex);
+  news(`${PATRONS[D.patron].name} hires ${G.name} for a private job`);
+  G.events.push(chainPartEvent());
+}
+function chainPick(j) {
+  const C = G.chain; if (!C) return;
+  const D = CHAINS[C.id], P = D.parts[C.part];
+  if (j >= 0 && P.choice) {
+    const o = P.choice.opts[j], f = o.fx || {}, said = [];
+    if (f.cr) G.credits += f.cr;
+    if (f.rep) G.rep = Math.max(0, G.rep + f.rep);
+    if (f.stand) G.standing[D.patron] = (G.standing[D.patron] || 0) + f.stand;
+    if (f.payMul) C.payMul *= f.payMul;
+    if (f.lvl) C.lvl += f.lvl;
+    C.tag = o.tag;
+    for (const [arch, v] of Object.entries(o.react || {})) { const ps = alivePilots().filter(p => p.arch === arch); for (const p of ps) p.morale = clamp(p.morale + v, 0, 100); if (ps.length) said.push(`${arch}${ps.length > 1 ? 's' : ''} ${v > 0 ? 'approve' : 'disapprove'} (${v > 0 ? '+' : ''}${v} morale)`); }
+    if (said.length) toast(said.join(' · '));
+  }
+  chainPost(C);
+}
+function chainPost(C) { // put this part's contract on the board
+  const D = CHAINS[C.id], P = D.parts[C.part], rng = RNG(hashStr(`${G.seed}:${C.id}:${C.part}:${C.tries}`));
+  const lvl = tierBase(G.tier) + (P.lvl || 0) + C.lvl;
+  const typeMult = { exterminate: 1, salvage: 0.85, defense: 1.1, bounty: 1.25, rift: 1.3 }[P.type];
+  let pay = 1100 * Math.pow(1.07, lvl - 36) * typeMult * 1.25 * C.payMul * (1 + 0.04 * clamp((G.standing || {})[D.patron] || 0, -5, 8));
+  if (G.origin === 'arcology') pay *= 1.2;
+  if (G.history === 'fixer') pay *= 1.15;
+  const travel = G.origin === 'carrier' ? 1 : 1 + (C.part % 2);
+  const c = { id: uid(), type: P.type, fac: P.fac, lvl, nodes: P.nodes || 3 + (C.part >= 2 ? 1 : 0), travel, biome: P.biome, pay: Math.round(pay / 50) * 50, expires: Math.min(SEASON_DAYS, G.day + 14), seed: rng.int(1, 1e9), region: P.region, chain: { id: C.id, part: C.part, n: D.parts.length }, patron: D.patron, brief: chainBrief(C, P) };
+  if (P.ace) c.ace = P.ace;
+  wxOf(c);
+  C.cid = c.id; G.contracts.unshift(c);
+  log(`${D.name}: part ${C.part + 1} posted to the contract board.`, 'good');
+}
+function chainResult(e) { // called when a chain contract's expedition comes home
+  const C = G.chain; if (!C || !e.c.chain || e.c.chain.id !== C.id || C.cid !== e.c.id) return;
+  const D = CHAINS[C.id];
+  if (e.success) {
+    G.standing[D.patron] = (G.standing[D.patron] || 0) + 1;
+    C.part++; C.cid = null; C.tries = 0; C.nextDay = absDay() + 1;
+    if (C.part >= D.parts.length) {
+      const bonus = Math.round(tierBase(G.tier) * 40 / 50) * 50;
+      G.events.push({ id: 'chain_end', title: `${D.name}: case closed`, text: D.end[C.tag] || D.end.clean || Object.values(D.end)[0], choices: [{ t: `Close the file (+${fmt(bonus)} cr bonus, +8 rep)`, fx: { chainClose: bonus } }] });
+    } else news(`${PATRONS[D.patron].name} pleased with ${G.name}'s work in ${regionOf(e.c)}`);
+  } else if (C.tries < 1) { C.tries++; C.cid = null; chainPost(C); log(`${D.name}: the patron will give you one more chance at this part.`, 'bad'); }
+  else chainEnd(false, `${PATRONS[D.patron].name} has lost patience with the guild.`);
+}
+function chainClose(bonus) {
+  const C = G.chain; if (!C) return; const D = CHAINS[C.id];
+  G.credits += bonus; G.rep += 8; G.standing[D.patron] = (G.standing[D.patron] || 0) + 2;
+  news(`${G.name} wrap up "${D.name}" for ${PATRONS[D.patron].name}`, 'good');
+  chainEnd(true);
+}
+function chainEnd(ok, why) {
+  const C = G.chain; if (!C) return; const D = CHAINS[C.id];
+  G.chainsDone = (G.chainsDone || []).concat(C.id); G.chainLast = absDay();
+  if (!ok) { G.standing[D.patron] = (G.standing[D.patron] || 0) - 1; G.rep = Math.max(0, G.rep - 3); log(`${D.name} is over. ${why || ''}`, 'bad'); news(`Word spreads that ${G.name} dropped a job for ${PATRONS[D.patron].name}`, 'bad'); }
+  G.contracts = G.contracts.filter(c => !(c.chain && c.chain.id === C.id));
+  G.chain = null;
+}
+function chainExpiry() { const C = G.chain; if (!C || !C.cid) return; const c = G.contracts.find(x => x.id === C.cid); if (!c) return; if (c.expires < G.day) { G.contracts = G.contracts.filter(x => x !== c); chainEnd(false, 'The contract expired before anyone took it.'); } }
+
+/* ================= CODEX ================= */
+const CODEX = [
+  { k: 'concordat', cat: 'The Concordat', name: 'The Guild Concordat', txt: 'Forty-one years ago the colony governments stopped pretending they could afford armies. They wrote a charter instead: any guild that registered its frames, paid its dues and fought by the ledger could sell its steel to whoever needed it. The Concordat keeps that ledger. It does not care who you fight for. It cares that the paperwork is clean and the salvage is declared.' },
+  { k: 'rivals', cat: 'The Concordat', name: 'Rival guilds', txt: 'There are always more guilds than contracts. Rivals share your tier, your clients and your standings table, and you will meet them on the sanctioned field when the brackets lock. Sanctioned rules keep most pilots alive. Most.' },
+  { k: 'tier0', cat: 'League tiers', name: 'Salvage League', txt: 'Where every guild starts and most guilds end. Patched frames, borrowed pilots, contracts nobody else wanted. The Concordat runs the Salvage League as a sieve: guilds that cannot pay their dues by season\'s end simply stop appearing on the feed.' },
+  { k: 'tier1', cat: 'League tiers', name: 'Frontier Circuit', txt: 'The first rung with a broadcast audience. Settlement councils hire from the Circuit because its guilds are cheap enough to afford and good enough to come home. Most pilots here still remember what they did before.' },
+  { k: 'tier2', cat: 'League tiers', name: 'Contract League', txt: 'Corporate money starts here. Contract League guilds sign retainers, wear sponsors\' colors and learn that a client\'s goodwill is worth more than any single payout. Lose a match and you lose rep; lose a client and you lose the season.' },
+  { k: 'tier3', cat: 'League tiers', name: 'Vanguard Division', txt: 'The Concordat sends Vanguard guilds when something has gone badly wrong: a rift that will not close, a Ghost Frame cluster that erased a garrison. The pay is high. The memorial walls are long.' },
+  { k: 'tier4', cat: 'League tiers', name: 'Sovereign League', txt: 'Sovereign guilds negotiate with planetary governments as near-equals, and their pilots have names the children in the settlements know. Every match is a diplomatic event. Every loss is a headline.' },
+  { k: 'tier5', cat: 'League tiers', name: 'Apex Circuit', txt: 'Eight guilds, one title. The Apex Circuit is the Concordat\'s showpiece and its warning: this is what discipline, money and luck can build, and the field below is littered with guilds that tried to buy the last two.' },
+  { k: 'fac_hollow', cat: 'Hostiles', name: 'The Hollow', txt: 'The Hollow came through the rifts in the second colonial decade and have never been understood. They do not communicate, negotiate or retreat. Biologists still argue about whether they are animals, tools, or the immune response of something much larger on the other side.' },
+  { k: 'h_drone', cat: 'Hostiles', name: 'Hollow Drone', txt: 'The commonest Hollow form: a fast, low, six-limbed body built around a mandible. Drones swarm the nearest heat source and bite until it stops moving. Alone, a drone is a nuisance. In the dark, forty of them sound like rain.' },
+  { k: 'h_spitter', cat: 'Hostiles', name: 'Hollow Spitter', txt: 'A swollen variant that lobs corrosive gel in high arcs. The acid eats through armor joints and pools on the ground long after the shot lands. Kill spitters early, or fight in the puddles.' },
+  { k: 'h_carapace', cat: 'Hostiles', name: 'Carapace', txt: 'A plated bull-form that charges through cover and pilots alike. Its shell turns small-arms fire; energy and explosives do the real work. When a carapace lowers its head, move.' },
+  { k: 'h_brood', cat: 'Hostiles', name: 'Broodmother', txt: 'Every mature rift is anchored by one: a mountain of tissue that births drones from its flanks and shrugs off anything short of a sustained barrage. Closing a rift means killing her. Guilds that manage it get their names read out on the feed.' },
+  { k: 'fac_raiders', cat: 'Hostiles', name: 'Raider Clans', txt: 'The clans were colonists once: miners, haulers and farmers left behind when the charter money moved on. Now they build mechs from whatever they can strip and take what the settlements will not give. They fight dirty, retreat fast, and remember every guild that burned a clan camp.' },
+  { k: 'fac_ghost', cat: 'Hostiles', name: 'Ghost Frames', txt: 'Autonomous war frames of the old colonial militias, still executing orders from command networks that no longer exist. They rarely miss and never waste a shot on anything but the biggest threat. Their armor is old and their targeting cores are older; EMP scrambles them badly.' },
+  { k: 'b_waste', cat: 'Theatres', name: 'Wasteland', txt: 'Broken badlands of red rock, dry riverbeds and abandoned well pumps. Sightlines are long and cover is sparse, so ranged frames fight over every outcrop. The wind never quite stops.' },
+  { k: 'b_city', cat: 'Theatres', name: 'Ruined city', txt: 'The first colony cities were built fast and abandoned faster. Their streets are canyons of hollowed towers and burnt-out traffic, perfect for ambushes and terrible for missiles. Raiders and Ghost Frames both call them home.' },
+  { k: 'b_ice', cat: 'Theatres', name: 'Ice moon', txt: 'Frozen moons and polar shelves where lakes of black ice groan under heavy frames. Coolant runs efficient and tempers run short. Pressure ridges and shoreline ice make the only real cover.' },
+  { k: 'b_hive', cat: 'Theatres', name: 'Alien hive', txt: 'Where the Hollow have rooted, the ground itself changes: violet creep, breathing mounds, pores that glow in the dark. Nothing native grows back. Fighting in a hive is fighting inside something alive.' },
+  { k: 'wx_night', cat: 'Conditions', name: 'Night', txt: 'Most colony worlds turn slowly. Night fights are lit by headlamps, muzzle flash and burning wrecks. Both sides lose reach, and the side with steadier nerves usually wins.' },
+  { k: 'wx_dust', cat: 'Conditions', name: 'Dust storm', txt: 'Dust storms on the badlands blot out the sun for days. Grit gets into every joint and sensor. Guns lose their range and pilots lose their patience.' },
+  { k: 'wx_blizzard', cat: 'Conditions', name: 'Blizzard', txt: 'Whiteout. Snow sheets sideways across the shelf and targeting sensors chase phantoms in the static. Close the distance or lose the target.' },
+  { k: 'wx_rain', cat: 'Conditions', name: 'Acid rain', txt: 'Decades of industrial runoff fall back out of the sky over the old cities. The rain is mildly acidic. The smog that comes with it does more harm to visibility than to paint.' },
+  { k: 'wx_spore', cat: 'Conditions', name: 'Spore haze', txt: 'Mature hives exhale. The air fills with drifting violet spores that clog intakes and scatter sensor returns. Nobody knows what the spores are for. Nobody wants to find out.' },
+  { k: 'p_town', cat: 'Patrons', name: "Marrow's Rest Council", txt: 'Seven elected elders governing a walled town of four thousand at the edge of the Ochre Flats. They pay in water rights as often as credits, and they never forget a guild that kept the pumps running.' },
+  { k: 'p_caravan', cat: 'Patrons', name: 'The Brass Wheel Caravan', txt: 'A rolling city of crawler-haulers that has not stopped moving in nineteen years. Its masters trade in salvage, rumours and favours, and they pay promptly as long as the cargo arrives intact.' },
+  { k: 'p_carrier', cat: 'Patrons', name: 'Carrier Command', txt: "The officers of the CSV Anselm's Reach, a decommissioned colonial carrier still holding high orbit. Command speaks in clipped orders, pays in drop windows, and would very much like its lost hardware back." },
+  { k: 'p_arcology', cat: 'Patrons', name: 'Meridian Spire Holdings', txt: 'The corporation behind the glass arcology on the coast. Meridian pays more than anyone and asks fewer questions than it should. Its contracts come with nondisclosure clauses longer than the briefings.' },
+];
+const CODEX_BY = Object.fromEntries(CODEX.map(e => [e.k, e]));
+const CODEX_HINT = { 'The Concordat': 'Unfiled record', 'League tiers': 'Unreached tier', Hostiles: 'Unidentified hostile', Theatres: 'Uncharted theatre', Conditions: 'Unrecorded condition', Patrons: 'Unknown patron' };
+function codexUnlock(k) { if (!G || !CODEX_BY[k]) return false; G.codex = G.codex || {}; if (G.codex[k]) return false; G.codex[k] = { s: G.season, d: G.day }; G.codexNew = (G.codexNew || 0) + 1; return true; }
+function codexBasics() { codexUnlock('concordat'); for (let t = 0; t <= G.tier; t++) codexUnlock('tier' + t); if (G.origin && PATRONS[G.origin]) codexUnlock(PATRONS[G.origin].codex); }
+function codexBattle(B) {
+  if (!G) return;
+  const ks = ['b_' + B.cfg.biome]; if (B.wxKey !== 'clear') ks.push('wx_' + B.wxKey);
+  for (const wv of B.cfg.waves || []) for (const s of wv) {
+    if (s.kind === 'bug') ks.push('fac_hollow', 'h_' + s.type);
+    else if (s.faction === 'raiders' || s.faction === 'ghost') ks.push('fac_' + s.faction);
+    else if (s.faction === 'rival') ks.push('rivals');
+  }
+  const fresh = [...new Set(ks)].filter(codexUnlock);
+  if (fresh.length) toast(`Codex: ${fresh.map(k => CODEX_BY[k].name).join(', ')}`);
+}
+function renderCodex() {
+  const have = G.codex || {}, cats = [...new Set(CODEX.map(e => e.cat))];
+  const sel = have[UI.codexSel] ? CODEX_BY[UI.codexSel] : CODEX.find(e => have[e.k]);
+  const n = CODEX.filter(e => have[e.k]).length;
+  showFull(`<div class="setup" style="max-width:1100px; padding-top:14px">
+  <div class="row" style="justify-content:space-between"><div><div class="tiny muted" style="letter-spacing:.22em; text-transform:uppercase">Concordat archive · ${n} of ${CODEX.length} entries</div><h1 style="margin:0">Codex</h1></div><button class="btn primary" data-act="codexClose">Back</button></div>
+  <div class="codex"><div class="panel codexlist">${cats.map(c => `<h4>${c}</h4>${CODEX.filter(e => e.cat === c).map(e => have[e.k] ? `<button class="cxi ${sel === e ? 'on' : ''}" data-act="codexSel" data-k="${e.k}">${esc(e.name)}</button>` : `<div class="cxi locked">${CODEX_HINT[c] || 'Unknown'}</div>`).join('')}`).join('')}</div>
+  <div class="panel codexentry">${sel ? `<div class="tiny muted" style="text-transform:uppercase; letter-spacing:.14em">${esc(sel.cat)}</div><h2>${esc(sel.name)}</h2><p>${esc(sel.txt)}</p><div class="tiny muted">Logged season ${have[sel.k].s}, day ${have[sel.k].d}</div>` : '<p class="muted">No entries yet.</p>'}</div></div></div>`);
+}
+// old saves: give every new field a default
+function migrateStory(G) {
+  if (!Array.isArray(G.news)) G.news = [];
+  if (!G.codex || typeof G.codex !== 'object') G.codex = {};
+  if (!G.standing || typeof G.standing !== 'object') G.standing = {};
+  if (!Array.isArray(G.chainsDone)) G.chainsDone = [];
+  if (G.chain && !CHAINS[G.chain.id]) G.chain = null;
+  if (G.chain === undefined) G.chain = null;
+  if (G.trend === undefined) G.trend = null;
+  for (const c of G.contracts || []) { wxOf(c); regionOf(c); }
+  for (const sq of ['A', 'B']) if (G.exp && G.exp[sq]) { wxOf(G.exp[sq].c); regionOf(G.exp[sq].c); }
+  codexBasics();
 }
 
 /* ---------- saves ---------- */
@@ -5276,7 +5820,7 @@ function migrateFunnelSlots(G) {
 }
 function loadFrom(key) {
   const s = store(); if (!s) return false;
-  try { const raw = s.getItem(key); if (!raw) return false; const d = JSON.parse(raw); G = d.G; normBanner(G.banner); migrateFunnelSlots(G); R = RNG((G.seed + G.season * 997 + G.day * 31) >>> 0); return true; } catch (e) { return false; }
+  try { const raw = s.getItem(key); if (!raw) return false; const d = JSON.parse(raw); G = d.G; normBanner(G.banner); migrateFunnelSlots(G); migrateStory(G); R = RNG((G.seed + G.season * 997 + G.day * 31) >>> 0); return true; } catch (e) { return false; }
 }
 function saveMeta(key) { const s = store(); if (!s) return null; try { const raw = s.getItem(key); return raw ? JSON.parse(raw).meta : null; } catch (e) { return null; } }
 /* ================= UI ================= */
@@ -5406,6 +5950,10 @@ function renderRail() {
     `<div class="grow"></div><button class="navb" data-act="menu" aria-label="Menu">${ICONS.menu}Menu</button>`;
 }
 ACT.tab = d => { UI.tab = d.t; render(); $('#view').scrollTop = 0; };
+ACT.newsLog = () => modal(`<h2>Concordat feed</h2><p class="small muted">Recent headlines. Rumours about a region tend to come before the contracts do.</p><div class="list">${(G.news || []).map(n => `<div class="small ${n.kind === 'warn' ? 'warnc' : n.kind}" style="padding:4px 0; border-bottom:1px solid var(--line)"><span class="muted">S${n.s} D${n.d}</span> ${esc(n.txt)}</div>`).join('') || '<p class="muted">No news yet.</p>'}</div><div class="row" style="justify-content:flex-end; margin-top:10px"><button class="btn primary" data-act="closeModal">Close</button></div>`);
+ACT.codex = () => { closeModal(); UI.full = 'codex'; G.codexNew = 0; renderCodex(); };
+ACT.codexSel = d => { UI.codexSel = d.k; renderCodex(); };
+ACT.codexClose = () => { hideFull(); render(); };
 
 /* ---------- day controls: Next day / Sim to <next scheduled thing> ---------- */
 // everything on the calendar, soonest first (random events are not on it: they can interrupt a sim)
@@ -5504,9 +6052,10 @@ function startTitleDemo() {
     for (const cls of ['TNK', 'LR', 'SUP', 'MEL']) { const p = makePilot(rng, { cls, mean: 62 }); const m = makeMech(rng, cls, { tier: 2, funnel: 1 }); allies.push({ pilot: p, mech: m }); }
     const fac = rng.pick(['hollow', 'ghost', 'raiders']);
     const waves = makeEnemies({ fac, lvl: 52, type: 'exterminate' }, 'combat', rng);
-    const B = newBattle({ seed: rng.int(1, 1e9), allies, waves, biome: fac === 'hollow' ? 'hive' : rng.pick(['waste', 'city', 'ice']), risk: 1 });
+    const biome = fac === 'hollow' ? 'hive' : rng.pick(['waste', 'city', 'ice']), sd = rng.int(1, 1e9);
+    const B = newBattle({ seed: sd, allies, waves, biome, risk: 1, weather: rollWeather(biome, sd) });
     for (const u of B.units) if (u.team === 0) { u.color = '#2F7DD1'; u.color2 = '#F0A63A'; u.color3 = '#D9DCE2'; }
-    B.fx = makeFX(B, cv, null); B.fx.panelW = 0;
+    B.fx = makeFX(B, cv, null); B.fx.panelW = 0; barkInit(B.fx);
     return B;
   };
   DEMO = { B: mk(), last: performance.now(), acc: 0, raf: 0 };
@@ -5518,8 +6067,8 @@ function startTitleDemo() {
     if (cvx.width !== Math.round(r.width * dpr)) { cvx.width = Math.round(r.width * dpr); cvx.height = Math.round(r.height * dpr); }
     const B = DEMO.B;
     DEMO.acc += dt * B.fx.timeScale;
-    let n = 0; while (DEMO.acc >= DT && n < 6) { stepBattle(B); DEMO.acc -= DT; n++; }
-    updateFX(B, B.fx, dt * B.fx.timeScale);
+    let n = 0; while (DEMO.acc >= DT && n < 6) { stepBattle(B); barkEvents(B, B.fx); DEMO.acc -= DT; n++; }
+    updateFX(B, B.fx, dt * B.fx.timeScale); barkScan(B, B.fx, dt);
     drawBattle(B, B.fx, r.width, r.height, dpr);
     tickSlow(B.fx, dt);
     if (B.result) DEMO.B = mk();
@@ -5535,7 +6084,7 @@ ACT.loadMenu = () => {
   modal(`<h2>Load a career</h2><div class="spacer"></div>${rows}<div class="spacer"></div><h4>Import a save</h4><p class="small muted">Paste a save code exported from the Menu.</p><textarea id="imp" style="width:100%; height:80px; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px"></textarea><div class="row" style="justify-content:flex-end; margin-top:8px"><button class="btn ghost" data-act="closeModal">Close</button><button class="btn primary" data-act="importSave">Import</button></div>`);
 };
 ACT.importSave = () => {
-  try { const d = JSON.parse($('#imp').value.trim()); if (!d.G || !d.G.pilots) throw 0; G = d.G; R = RNG((G.seed + G.day) >>> 0); autosave(); closeModal(); hideFull(); UI.tab = 'hq'; render(); toast('Save imported.'); }
+  try { const d = JSON.parse($('#imp').value.trim()); if (!d.G || !d.G.pilots) throw 0; G = d.G; normBanner(G.banner); migrateFunnelSlots(G); migrateStory(G); R = RNG((G.seed + G.day) >>> 0); autosave(); closeModal(); hideFull(); UI.tab = 'hq'; render(); toast('Save imported.'); }
   catch (e) { toast('That code is not a valid save.'); }
 };
 
@@ -5689,8 +6238,12 @@ function renderHQ() {
   }
   const st = standings(), pos = st.findIndex(r => r.me) + 1;
   const wages = alivePilots().reduce((s, p) => s + p.wage, 0) + G.mechs.reduce((s, m) => s + WEIGHTS[chassisOf(m).wt].upkeep, 0) + Object.values(G.facilities).reduce((s, l) => s + l * 60, 0);
-  return `<div class="page">${leaguePanel()}<div class="spacer"></div><div class="grid2 hqgrid">${squadCard('A')}${squadCard('B')}
-  <div class="panel"><h3>Guild</h3><div class="small">League position <b>${pos} of ${st.length}</b> in the ${TIERS[G.tier]}</div><div class="small">Monthly costs about <b>${fmt(wages)}</b> (next payday day ${Math.ceil(G.day / 28) * 28 || 28})</div><div class="small">Pilots ${alivePilots().length}/${capacity()} · Mechs ${G.mechs.length}</div>${G.building ? `<div class="small">Building ${FACILITIES[G.building.k].name}: ${G.building.days} days left</div>` : ''}${G.credits < 0 ? `<div class="small bad">In debt. Four weeks past −5,000 ends the career.</div>` : ''}</div></div>
+  codexBasics();
+  const C = G.chain, cn = (G.codexNew || 0), stand = Object.entries(G.standing || {}).filter(([, v]) => v);
+  const story = C ? `<div class="small" style="margin-top:4px">Story job: <b>${esc(CHAINS[C.id].name)}</b> for ${esc(PATRONS[CHAINS[C.id].patron].name)} · part ${Math.min(C.part + 1, CHAINS[C.id].parts.length)} of ${CHAINS[C.id].parts.length}</div>` : '';
+  const standTxt = stand.length ? `<div class="tiny muted">Standing: ${stand.map(([k, v]) => `${esc(PATRONS[k].name)} <b class="${v > 0 ? 'good' : 'bad'}">${v > 0 ? '+' : ''}${v}</b>`).join(' · ')}</div>` : '';
+  return `<div class="page">${tickerHTML()}${leaguePanel()}<div class="spacer"></div><div class="grid2 hqgrid">${squadCard('A')}${squadCard('B')}
+  <div class="panel"><h3>Guild</h3><div class="small">League position <b>${pos} of ${st.length}</b> in the ${TIERS[G.tier]}</div><div class="small">Monthly costs about <b>${fmt(wages)}</b> (next payday day ${Math.ceil(G.day / 28) * 28 || 28})</div><div class="small">Pilots ${alivePilots().length}/${capacity()} · Mechs ${G.mechs.length}</div>${G.building ? `<div class="small">Building ${FACILITIES[G.building.k].name}: ${G.building.days} days left</div>` : ''}${G.credits < 0 ? `<div class="small bad">In debt. Four weeks past −5,000 ends the career.</div>` : ''}${story}${standTxt}<div class="row" style="margin-top:6px"><button class="btn sm" data-act="codex">Codex${cn ? ` <span class="chip tiny" style="color:var(--amber)">+${cn}</span>` : ''}</button><button class="btn sm ghost" data-act="newsLog">News feed</button></div></div></div>
   <div class="spacer"></div><div class="weekgrid">${days.join('')}</div>
   <div class="spacer"></div><div class="panel"><h3>Guild log</h3><div class="list">${G.log.slice(0, 18).map(l => `<div class="small ${l.kind}"><span class="muted">S${l.s} D${l.d}</span> ${esc(l.txt)}</div>`).join('')}</div></div></div>`;
 }
@@ -6260,12 +6813,12 @@ function renderOps() {
   const tl = teamLevel(ps);
   const busy = !!G.exp[sq];
   let sel = G.contracts.find(c => c.id === UI.sel.contract) || G.contracts[0];
-  const card = c => { const r = riskIndex(c.lvl, tl); return `<button class="card ${sel === c ? 'on' : ''}" data-act="selContract" data-id="${c.id}"><div class="meta"><div class="nm">${CONTRACT_TYPES[c.type].name} <span class="small muted">vs ${FACTIONS[c.fac].name}</span></div><div class="row wrap" style="gap:4px"><span class="chip risk-${r}">${RISKS[r]}</span><span class="small muted">${BIOMES[c.biome].name} · ${c.nodes} nodes · ${c.travel * 2 + c.nodes} days</span></div></div><div style="text-align:right"><b>${fmt(c.pay)}</b><div class="tiny muted">expires ${c.expires - G.day}d</div></div></button>`; };
+  const card = c => { const r = riskIndex(c.lvl, tl); return `<button class="card ${sel === c ? 'on' : ''}" data-act="selContract" data-id="${c.id}"><div class="meta"><div class="nm">${CONTRACT_TYPES[c.type].name} <span class="small muted">vs ${FACTIONS[c.fac].name}</span></div><div class="row wrap" style="gap:4px">${c.chain ? `<span class="chip story">Story ${c.chain.part + 1}/${c.chain.n}</span>` : ''}<span class="chip risk-${r}">${RISKS[r]}</span>${wxChip(wxOf(c))}<span class="small muted">${esc(regionOf(c))} · ${c.nodes} nodes · ${c.travel * 2 + c.nodes} days</span></div></div><div style="text-align:right"><b>${fmt(c.pay)}</b><div class="tiny muted">expires ${c.expires - G.day}d</div></div></button>`; };
   let detail = '';
   if (sel) {
     const r = riskIndex(sel.lvl, tl);
-    detail = `<div class="panel"><h2>${CONTRACT_TYPES[sel.type].name}</h2><p class="muted small">${CONTRACT_TYPES[sel.type].desc}.${sel.ace ? ` Target: <b>${esc(sel.ace)}</b>.` : ''}</p>
-    <div class="grid2 small opsgrid"><div>Enemy: <b>${FACTIONS[sel.fac].name}</b><div class="tiny muted">${FACTIONS[sel.fac].desc}</div></div><div>Biome: <b>${BIOMES[sel.biome].name}</b></div>
+    detail = `<div class="panel"><h2>${CONTRACT_TYPES[sel.type].name}</h2>${sel.chain && CHAINS[sel.chain.id] ? `<div class="brief"><div class="tiny" style="letter-spacing:.14em; text-transform:uppercase; color:var(--amber)">${esc(CHAINS[sel.chain.id].name)} · part ${sel.chain.part + 1} of ${sel.chain.n} · ${esc(PATRONS[sel.patron].name)}</div><p class="small" style="margin:4px 0 0">${esc(sel.brief || '')}</p></div>` : ''}<p class="muted small">${CONTRACT_TYPES[sel.type].desc}.${sel.ace ? ` Target: <b>${esc(sel.ace)}</b>.` : ''}</p>
+    <div class="grid2 small opsgrid"><div>Enemy: <b>${FACTIONS[sel.fac].name}</b><div class="tiny muted">${FACTIONS[sel.fac].desc}</div></div><div>Theatre: <b>${BIOMES[sel.biome].name}</b>, ${esc(regionOf(sel))}</div><div>Conditions: ${wxChip(wxOf(sel))} <span class="tiny muted">${WEATHER[wxOf(sel)].desc}</span></div>
     <div>Enemy level <b>${sel.lvl}</b> vs your team <b>${Math.round(tl)}</b></div><div>Risk <span class="chip risk-${r}">${RISKS[r]}</span> · ejection death chance ${Math.round(RISK_DEATH[r] * 100)}%</div>
     <div>Pay <b>${fmt(sel.pay)}</b> (+10% with no deaths)</div><div>Rep <b>+${RISK_REP[r]}</b></div>
     <div>Travel ${sel.travel}d each way · ${sel.nodes} nodes</div><div>Expires day ${sel.expires}</div></div>
@@ -6321,6 +6874,7 @@ ACT.seriesGo = () => {
 ACT.menu = () => {
   const slots = SAVE_KEYS.slice(1).map(k => { const m = saveMeta(k); return `<div class="row" style="justify-content:space-between; padding:5px 0"><span class="small">Slot ${k.slice(-1)}: ${m ? `${esc(m.name)} S${m.season} D${m.day}` : 'empty'}</span><span class="row"><button class="btn sm" data-act="saveSlot" data-k="${k}" ${G.ironman ? 'disabled' : ''}>Save</button>${m ? `<button class="btn sm ghost" data-act="loadSlot" data-k="${k}" ${G.ironman ? 'disabled' : ''}>Load</button>` : ''}</span></div>`; }).join('');
   modal(`<h2>Menu</h2>${G.ironman ? '<p class="small warnc">Ironman career: autosave only.</p>' : ''}${slots}
+  <div class="spacer"></div><div class="row"><button class="btn sm" data-act="codex">Open the Codex</button><button class="btn sm ghost" data-act="newsLog">News feed</button></div>
   <div class="spacer"></div><h4>Theme</h4><div class="row">${['auto', 'light', 'dark'].map(t => `<button class="btn sm ${UI.theme === t ? 'primary' : ''}" data-act="theme" data-t="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
   <div class="spacer"></div><h4>Default battle speed</h4><div class="row">${[1, 2, 4].map(s => `<button class="btn sm ${UI.speed === s ? 'primary' : ''}" data-act="defSpeed" data-s="${s}">${s}x</button>`).join('')}</div>
   <div class="spacer"></div><h4>Export save</h4><p class="small muted">Copy this code to back up your career or move it to another device.</p><textarea readonly style="width:100%; height:70px; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:6px; font-size:10px">${esc(JSON.stringify({ meta: { name: G.name }, G }))}</textarea>
@@ -6420,7 +6974,7 @@ function renderSetup2() {
   ${S.mode === 'rules' ? '' : `<div class="panel"><h3>Formation</h3><p class="small muted" style="margin:0 0 6px">Select a pilot, then tap a cell. The enemy is to the right.</p><div class="formation">${grid.join('')}</div>
   <div class="spacer"></div><h4>Doctrine</h4><div class="row" style="margin-top:4px">${['aggressive', 'balanced', 'defensive'].map(d => `<button class="btn sm ${doc === d ? 'primary' : ''}" data-act="suDoc" data-d="${d}">${d[0].toUpperCase() + d.slice(1)}</button>`).join('')}</div>
   <p class="tiny muted">${doc === 'aggressive' ? 'Closes distance: ranged mechs fight 20% closer.' : doc === 'defensive' ? 'Holds range: ranged mechs keep 12% more distance.' : 'Fights at each weapon\'s preferred range.'}</p>
-  ${S.contract || S.node ? setupIntel(S) : ''}</div>`}
+  ${S.contract || S.node ? setupIntel(S) : S.mode === 'series' && G.series ? (() => { const f = seriesField(S.pilots); return `<div class="spacer"></div><h4>Field</h4><div class="small">${BIOMES[f.biome].name} · ${wxChip(f.weather)} <span class="tiny muted">${WEATHER[f.weather].desc}</span></div>`; })() : ''}</div>`}
   <div class="panel"><div class="row" style="justify-content:space-between"><h3>${esc(p.call)}'s command priorities</h3><span class="small muted">${slots} of 8 slots · Tactics ${p.stats.tactics}</span></div>
   <p class="small muted" style="margin:0 0 8px">Rules are checked top to bottom every decision. The first rule whose condition is true and whose action can be done is used.</p>
   ${Array.from({ length: 8 }, (_, i) => ruleRow(rules[i], i)).join('')}
@@ -6432,7 +6986,8 @@ function setupIntel(S) {
   if (!c) return '';
   const tl = teamLevel(S.pilots);
   const r = riskIndex(c.lvl + (S.node && (S.node.type === 'elite' || S.node.type === 'boss' || S.node.type === 'ace') ? 6 : 0), tl);
-  return `<div class="spacer"></div><h4>Intel</h4><div class="small">${FACTIONS[c.fac].name} · ${BIOMES[c.biome].name}</div><div class="small">Risk <span class="chip risk-${r}">${RISKS[r]}</span> · team level ${Math.round(tl)} vs ${c.lvl}</div>
+  const wk = wxOf(c);
+  return `<div class="spacer"></div><h4>Intel</h4><div class="small">${FACTIONS[c.fac].name} · ${BIOMES[c.biome].name} · ${esc(regionOf(c))}</div><div class="small">Conditions ${wxChip(wk)} <span class="tiny muted">${WEATHER[wk].desc}</span></div><div class="small">Risk <span class="chip risk-${r}">${RISKS[r]}</span> · team level ${Math.round(tl)} vs ${c.lvl}</div>
   <div class="tiny muted">${c.fac === 'hollow' ? 'Swarms close fast. Area damage and a tank up front pay off.' : c.fac === 'ghost' ? 'They focus fire on the biggest threat. EMP hits them hard.' : 'Scrappy mechs with mixed loadouts. They break when losing.'}</div>`;
 }
 ACT.suSel = d => { UI.su.sel = d.id; renderSetup2(); };
@@ -6568,7 +7123,7 @@ function renderExpedition() {
   }
   showFull(`<div class="setup" style="max-width:1240px; padding-top:14px">
   <div class="exp-head"><div><div class="kick">Squad ${e.sq} · Contract in progress</div><h1 class="exp-title">${CONTRACT_TYPES[e.c.type].name}</h1>
-    <div class="exp-meta"><span class="chip">${FACTIONS[e.c.fac].name}</span><span class="chip">${BIOMES[e.c.biome].name}</span><span class="chip risk-${e.risk}">${RISKS[e.risk]} risk</span><span class="chip">Pay ${fmt(e.c.pay)}</span><span class="chip">Salvage ${e.salvage}</span><span class="chip">Cleared ${cleared}/${e.layers.flat().length}</span></div></div>
+    <div class="exp-meta">${e.c.chain && CHAINS[e.c.chain.id] ? `<span class="chip story">${esc(CHAINS[e.c.chain.id].name)} ${e.c.chain.part + 1}/${e.c.chain.n}</span>` : ''}<span class="chip">${FACTIONS[e.c.fac].name}</span><span class="chip">${BIOMES[e.c.biome].name} · ${esc(regionOf(e.c))}</span>${wxChip(wxOf(e.c))}<span class="chip risk-${e.risk}">${RISKS[e.risk]} risk</span><span class="chip">Pay ${fmt(e.c.pay)}</span><span class="chip">Salvage ${e.salvage}</span><span class="chip">Cleared ${cleared}/${e.layers.flat().length}</span></div></div>
     <div class="row"><button class="btn ghost" data-act="expClose">Back to HQ</button>${e.pending ? '<button class="btn danger" data-act="expExtract">Extract</button>' : ''}</div></div>
   <div class="grid2 expgrid">
     <div><div class="sector">${svg}<div class="maptitle"><b>Sector map</b><span>${BIOMES[e.c.biome].name} · ${FACTIONS[e.c.fac].name}</span></div>${nodes}${pin}</div>
@@ -6595,7 +7150,7 @@ ACT.expGo = () => {
 function startNodeBattle(e, n, fighters) {
   const seed = hashStr(e.c.seed + ':' + n.id + ':' + fighters.map(p => p.id).join(','));
   const waves = makeEnemies(e.c, n.type, RNG(seed ^ 0x9e37));
-  const cfg = { seed, allies: fighters.map(p => ({ pilot: p, mech: mechOf(p) })), waves, biome: e.c.biome, risk: e.risk, doctrine: G.doctrine[e.sq], lvl: e.c.lvl, title: `${CONTRACT_TYPES[e.c.type].name} · ${NODE_NAME[n.type]}`, sub: `${FACTIONS[e.c.fac].name} · ${BIOMES[e.c.biome].name}` };
+  const cfg = { seed, allies: fighters.map(p => ({ pilot: p, mech: mechOf(p) })), waves, biome: e.c.biome, weather: wxOf(e.c), risk: e.risk, doctrine: G.doctrine[e.sq], lvl: e.c.lvl, title: `${CONTRACT_TYPES[e.c.type].name} · ${NODE_NAME[n.type]}`, sub: `${FACTIONS[e.c.fac].name} · ${regionOf(e.c)} · ${WEATHER[wxOf(e.c)].name}` };
   hideFull();
   startBattle(cfg, res => {
     const out = applyBattle(res, { exp: e });
@@ -6606,11 +7161,12 @@ function startNodeBattle(e, n, fighters) {
     showDebrief(res, out, () => { if (G.exp[e.sq]) openExpedition(e.sq); else { hideFull(); render(); } });
   });
 }
+function seriesField(ps) { const s = G.series, seed = hashStr(s.opp.name + ':' + (s.wins + s.losses) + ':' + ps.map(p => p.id).join(',')), biome = RNG(seed).pick(['city', 'waste', 'ice']); return { seed, biome, weather: rollWeather(biome, seed) }; }
 function startSeriesBattle(ps) {
   const s = G.series;
-  const seed = hashStr(s.opp.name + ':' + (s.wins + s.losses) + ':' + ps.map(p => p.id).join(','));
+  const { seed, biome, weather } = seriesField(ps);
   const waves = makeRivalSquad(s.opp, RNG(seed ^ 0x51));
-  const cfg = { seed, allies: ps.map(p => ({ pilot: p, mech: mechOf(p) })), waves, biome: RNG(seed).pick(['city', 'waste', 'ice']), risk: 0, sanctioned: true, doctrine: G.doctrine.S || 'balanced', lvl: s.opp.str, title: `${s.kind === 'final' ? 'Championship final' : s.kind === 'promotion' ? 'Promotion series' : 'Relegation series'} · round ${s.wins + s.losses + 1}`, sub: `vs ${s.opp.name} · sanctioned rules` };
+  const cfg = { seed, allies: ps.map(p => ({ pilot: p, mech: mechOf(p) })), waves, biome, weather, risk: 0, sanctioned: true, doctrine: G.doctrine.S || 'balanced', lvl: s.opp.str, title: `${s.kind === 'final' ? 'Championship final' : s.kind === 'promotion' ? 'Promotion series' : 'Relegation series'} · round ${s.wins + s.losses + 1}`, sub: `vs ${s.opp.name} · sanctioned rules · ${WEATHER[weather].name}` };
   hideFull();
   startBattle(cfg, res => {
     const out = applyBattle(res, { sanctioned: true });
@@ -6631,7 +7187,8 @@ function startBattle(cfg, onDone) {
   const hooks = { onSig: u => { if (u.team === 0) cutIn(u); }, onDeath: () => { } };
   const fx = makeFX(B, cv, hooks);
   fx.reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  B.fx = fx;
+  B.fx = fx; barkInit(fx);
+  codexBattle(B);
   BAT = { B, fx, speed: UI.speed || 1, paused: false, acc: 0, last: performance.now(), onDone, raf: 0, cardT: 0, ended: false };
   $('#btitle').innerHTML = `<b>${esc(cfg.title || 'Battle')}</b><div>${esc(cfg.sub || '')}</div>`;
   $('#bresult').classList.remove('on'); $('#cutin').classList.remove('on');
@@ -6703,9 +7260,10 @@ function battleLoop(now) {
     const k = BAT.speed * fx.timeScale;
     BAT.acc += dt * k;
     let n = 0; const maxN = 8 * BAT.speed;
-    while (BAT.acc >= DT && n < maxN && !B.result) { stepBattle(B); BAT.acc -= DT; n++; }
+    while (BAT.acc >= DT && n < maxN && !B.result) { stepBattle(B); barkEvents(B, fx); BAT.acc -= DT; n++; }
     if (n >= maxN) BAT.acc = 0;
     updateFX(B, fx, dt * k);
+    barkScan(B, fx, dt);
   }
   tickSlow(fx, dt);
   // adaptive quality: drop render resolution when frames run long, restore it when there's headroom
@@ -6745,6 +7303,37 @@ function showDebrief(res, out, next) {
   UI.full = 'debrief'; UI.deb = { res, out, next, sel: res.units[0] && res.units[0].pilotId };
   renderDebrief();
 }
+// post-battle squad comms: a face (expression fits what happened), a one-liner in the pilot's voice, MVP and close calls
+const DEBRIEF_LINES = {
+  Hotblood: { mvp: ['Told you I\'d carry. Give me something hard next time.', 'Top of the board. Obviously.'], win: ['Fun. Again tomorrow?', 'They folded way too fast.'], loss: ['We should have pushed harder. I should have.', 'Put me back out there. Now.'], close: ['Almost had me. Almost.', 'Smelled my own wiring burning. Felt alive.'], fallen: ['Give me their callsign. I\'m painting it on my next kill.', 'Somebody is paying for this.'], ejected: ['They owe me a mech.', 'Next time I\'m not getting out.'] },
+  Stoic: { mvp: ['Did the job.', 'Adequate result.'], win: ['Mission complete.', 'Acceptable.'], loss: ['We regroup.', 'Noted. Adjusting.'], close: ['Too close. It won\'t happen twice.', 'Armor held. Barely.'], fallen: ['I\'ll carry them home.', 'We remember.'], ejected: ['Frame\'s gone. I\'m not.', 'Bailed. Ready for the next one.'] },
+  Prodigy: { mvp: ['Best numbers on the board! Can I see the replay?', 'I\'m really getting the hang of this.'], win: ['That went exactly like the sim. Mostly.', 'Clean run! Ish.'], loss: ['I don\'t understand what I did wrong.', 'I need more sim hours. Lots more.'], close: ['My hands are still shaking.', 'I saw the eject handle. I really saw it.'], fallen: ['They taught me that maneuver.', 'This isn\'t how it was supposed to go.'], ejected: ['I\'m okay! I think I\'m okay.', 'The sim never tells you how loud ejecting is.'] },
+  Veteran: { mvp: ['Old dog, old tricks.', 'Kids did good too. Mostly me, though.'], win: ['Good drill out there. Keep it up.', 'That\'s how a squad fights.'], loss: ['Lose today, learn today.', 'Happens. What matters is what we do next.'], close: ['Felt that one in my teeth.', 'Getting too old to cut it that fine.'], fallen: ['Buried too many. It never gets lighter.', 'Pour one out tonight.'], ejected: ['Lost a frame, kept my head. Fair trade.', 'Seen worse landings.'] },
+  Idealist: { mvp: ['As long as the people out there are safe.', 'Good work, but it\'s the client we did it for.'], win: ['Those settlers sleep easier tonight.', 'The right thing, done well.'], loss: ['We let them down out there.', 'Next time we hold.'], close: ['Worth it, if they\'re safe.', 'I\'d do it again.'], fallen: ['They gave everything. We owe them the same.', 'We have to make this mean something.'], ejected: ['Get me another frame. They still need us.', 'I\'m fine. Who else is hurt?'] },
+  Mercenary: { mvp: ['Top damage. I expect that in the bonus.', 'Tell accounting to round up.'], win: ['Contract fulfilled. Where\'s my cut?', 'Good. Billable.'], loss: ['That\'s a lot of repair invoices.', 'Bad business.'], close: ['Hazard pay. I\'m serious.', 'That nearly cost me everything I\'ve saved.'], fallen: ['Their share goes to their family. All of it.', 'Some debts you can\'t collect.'], ejected: ['Insurance had better cover this.', 'Somebody owes me a chassis.'] },
+  Haunted: { mvp: ['Doesn\'t feel like winning.', 'Kept them off the others. That\'s enough.'], win: ['We all came back. For once.', 'Quiet now.'], loss: ['Same as always.', 'I knew it would go like this.'], close: ['Saw the dark for a second. It looked back.', 'Not yet, apparently.'], fallen: ['Another name on the wall. Another face at night.', 'I should have been there.'], ejected: ['Climbed out of the fire again.', 'The fire let me go. It always does.'] },
+  Cheerful: { mvp: ['Did you SEE that? Snacks are on me!', 'Best day ever!'], win: ['Team win! Group photo!', 'We were amazing out there!'], loss: ['We\'ll get them next time, right? Right?', 'Chin up, everybody.'], close: ['Ha... ha. That was a lot.', 'I\'m fine! Mostly fine!'], fallen: ['I don\'t... I don\'t know what to say.', 'I can\'t stop thinking about them.'], ejected: ['My poor mech! I\'ll fix you, buddy.', 'Bumpy ride! Still here!'] },
+};
+function debriefComms(res, out) {
+  const us = res.units; if (!us.length) return '';
+  const score = u => u.st.dealt + u.st.kills * 120 + u.st.healed * 0.9;
+  const mvp = us.reduce((b, u) => score(u) > score(b) ? u : b, us[0]), hasMvp = score(mvp) > 0;
+  const dead = new Set(out.deaths.map(p => p.id));
+  const closeU = us.filter(u => u.alive && (u.minHp ?? 1) < 0.15);
+  const cards = us.map(u => {
+    const p = pilotById(u.pilotId); if (!p) return '';
+    const kia = u.fate === 'kia', isMvp = hasMvp && u === mvp, close = closeU.includes(u), ej = !u.alive && !kia, fallen = [...dead].some(id => id !== p.id);
+    const sit = fallen ? 'fallen' : ej ? 'ejected' : close ? 'close' : isMvp ? 'mvp' : res.win ? 'win' : 'loss';
+    const fragile = p.arch === 'Haunted' || p.arch === 'Cheerful' || p.arch === 'Prodigy';
+    const expr = kia ? 'neutral' : sit === 'fallen' ? (p.arch === 'Stoic' || p.arch === 'Veteran' ? 'shaken' : 'broken') : sit === 'ejected' || sit === 'close' ? 'shaken'
+      : sit === 'mvp' ? (p.arch === 'Hotblood' || p.arch === 'Haunted' || p.arch === 'Stoic' ? 'fierce' : 'happy') : sit === 'win' ? (u.st.kills >= 2 && p.arch === 'Hotblood' ? 'fierce' : 'happy') : fragile ? 'broken' : 'shaken';
+    const L = (DEBRIEF_LINES[p.arch] || DEBRIEF_LINES.Stoic)[sit];
+    const quote = kia ? (p.lastWords || '...') : L[hashStr(p.id + ':' + Math.round(res.t * 10)) % L.length];
+    return `<div class="comm ${kia ? 'kia' : ''}">${portrait(p, 'md', expr)}<div class="cm"><div class="row" style="gap:4px; flex-wrap:wrap"><b>${esc(p.call)}</b>${isMvp ? '<span class="chip mvp">MVP</span>' : ''}${close ? `<span class="chip close">Close call · ${Math.max(1, Math.round(u.minHp * 100))}%</span>` : ''}${kia ? '<span class="chip inj">KIA</span>' : ej ? '<span class="chip inj">Ejected</span>' : ''}</div><div class="tiny muted">${p.arch} · ${u.st.kills} kill${u.st.kills === 1 ? '' : 's'} · ${Math.round(u.st.dealt)} dmg${u.st.healed >= 1 ? ` · ${Math.round(u.st.healed)} repaired` : ''}</div><q>${esc(quote)}</q></div></div>`;
+  }).join('');
+  const wx = res.wx && res.wx !== 'clear' && WEATHER[res.wx] ? ` · fought in ${WEATHER[res.wx].name.toLowerCase()}` : '';
+  return `<div class="panel" style="margin-bottom:10px"><div class="row wrap" style="justify-content:space-between; gap:6px"><h3>Squad comms</h3><span class="small muted">${hasMvp ? `MVP <b style="color:var(--amber)">${esc(mvp.label)}</b> · ` : ''}${closeU.length ? `Close calls: ${closeU.map(u => esc(u.label)).join(', ')}` : 'No close calls'}${wx}</span></div><div class="comms">${cards}</div></div>`;
+}
 function fateChip(u) {
   if (u.fate === 'kia') return '<span class="chip inj">KIA</span>';
   if (!u.alive) return `<span class="chip inj">Ejected${u.fate === 'major' ? ' · major injury' : u.fate === 'minor' ? ' · minor injury' : ''}</span>`;
@@ -6761,6 +7350,7 @@ function renderDebrief() {
   showFull(`<div class="setup" style="max-width:1100px; padding-top:14px">
   <div class="row" style="justify-content:space-between"><h1 class="${res.win ? 'good' : 'bad'}">${res.win ? 'Victory' : res.timeout ? 'Stalemate' : 'Defeat'}</h1><button class="btn primary" data-act="debNext">Continue</button></div>
   <p class="muted">${res.kills} hostiles destroyed in ${Math.round(res.t)} seconds.</p>
+  ${debriefComms(res, out)}
   <div class="grid2 debgrid"><div class="panel"><div class="tscroll"><table class="t"><tr><th>Pilot</th><th>Damage</th><th>Taken</th><th>Kills</th><th>Repaired</th><th title="Missiles dash-dodged / shot down">Dodge / PD</th><th>Status</th></tr>
   ${res.units.map(u => { const p = pilotById(u.pilotId); return `<tr class="${u.pilotId === sel ? 'me' : ''}" data-act="debSel" data-id="${u.pilotId}" style="cursor:pointer"><td><div class="row" style="gap:6px">${p ? portrait(p, '', u.fate === 'kia' ? 'neutral' : res.win ? 'happy' : 'shaken') : ''}<b>${esc(u.label)}</b>${u.sigUsed ? ' <span class="chip tiny" style="color:var(--cyan)">Signature</span>' : ''}</div></td><td>${Math.round(u.st.dealt)}</td><td>${Math.round(u.st.taken)}</td><td>${u.st.kills}</td><td>${Math.round(u.st.healed)}</td><td>${u.st.dodges || 0} / ${u.st.intercepts || 0}</td><td>${fateChip(u)}</td></tr>`; }).join('')}</table></div>
   ${out.deaths.map(p => `<div class="panel" style="margin-top:10px; border-color:var(--danger)"><div class="row">${portrait(p, 'md', 'neutral')}<div><h3>${esc(pilotName(p))} was killed in action</h3><p class="small" style="margin:4px 0; font-style:italic">“${esc(p.lastWords)}”</p><div class="tiny muted">${p.battles} battles · ${p.kills} kills. Their name goes on the memorial wall.</div></div></div></div>`).join('')}
