@@ -43,16 +43,19 @@ public static class Prep {
   // returns "w,h" of the scaled frame; writes strip PNG: [base | primary mask | secondary mask | glow]
   // stacked = grayscale on the top half and the color mask on the bottom half (instead of left/right columns)
   public static string Part(string src, int row, int rows, double scale, string outPath) { return Part(src, row, rows, scale, outPath, false); }
-  public static string Part(string src, int row, int rows, double scale, string outPath, bool stacked) {
+  public static string Part(string src, int row, int rows, double scale, string outPath, bool stacked) { return Part(src, row, rows, scale, outPath, stacked, 0, 0); }
+  // fixW/fixH > 0: frame is at least that big and the art is anchored to its left edge (so animation frames of one
+  // weapon, e.g. a pile bunker with its spike in and out, share one scale and grip point)
+  public static string Part(string src, int row, int rows, double scale, string outPath, bool stacked, int fixW, int fixH) {
     var bmp = new Bitmap(src); int st; var p = Read(bmp, out st); int W = bmp.Width, H = bmp.Height; bmp.Dispose();
     int hw = W/2, ry0 = row*H/rows, ry1 = (row+1)*H/rows;
     Rectangle g, c;
     bool[] kg = stacked ? Keep(p, st, W, H, 0, 0, W, H/2, out g) : Keep(p, st, W, H, 0, ry0, hw, ry1, out g);
     bool[] kc = stacked ? Keep(p, st, W, H, 0, H/2, W, H, out c) : Keep(p, st, W, H, hw, ry0, W, ry1, out c);
-    int w = Math.Max(g.Width, c.Width), h = Math.Max(g.Height, c.Height);
+    int w = Math.Max(Math.Max(g.Width, c.Width), fixW), h = Math.Max(Math.Max(g.Height, c.Height), fixH);
     // align by bbox centers, then nudge the color layer to where the two silhouettes overlap best
     // (a glow halo on one side of the color art would otherwise drag its centre off the grayscale art)
-    int gx = g.X + g.Width/2 - w/2, gy = g.Y + g.Height/2 - h/2, cx = c.X + c.Width/2 - w/2, cy = c.Y + c.Height/2 - h/2;
+    int gx = fixW > 0 ? g.X : g.X + g.Width/2 - w/2, gy = g.Y + g.Height/2 - h/2, cx = fixW > 0 ? c.X : c.X + c.Width/2 - w/2, cy = c.Y + c.Height/2 - h/2;
     {
       int bdx = 0, bdy = 0; double best = -1;
       for (int dy=-10; dy<=10; dy+=1) for (int dx=-30; dx<=30; dx+=1) {
@@ -106,7 +109,7 @@ public static class Prep {
 }
 '@
 # Sheets that are no longer in src/img are skipped (their sprites in the output folder are kept), so the numbering stays stable.
-$mechs = @('Four Mecha Component Sprites','Top-Down Mech Booster and Torso Color Study','Top-Down Mecha Blueprint Spritesheet','Top-Down Mecha Booster and Torso Color Study','Top-Down Mecha Components Sprite Sheet','Oni Mech Components_ Grayscale and RGB Masks','Red-Lime Mech Chassis Blueprint','Sci-Fi Mech Booster and Cockpit Asset Sheet','Vibrant Mecha Booster and Torso Set','Futuristic Spaceship Icon Grid','Neon Sci‑Fi Ship Component Sprite Sheet')
+$mechs = @('Four Mecha Component Sprites','Top-Down Mech Booster and Torso Color Study','Top-Down Mecha Blueprint Spritesheet','Top-Down Mecha Booster and Torso Color Study','Top-Down Mecha Components Sprite Sheet','Oni Mech Components_ Grayscale and RGB Masks','Red-Lime Mech Chassis Blueprint','Sci-Fi Mech Booster and Cockpit Asset Sheet','Vibrant Mecha Booster and Torso Set','Futuristic Spaceship Icon Grid','Neon Sci‑Fi Ship Component Sprite Sheet','Sci-Fi Mech Sprite Sheet Variants')
 New-Item -ItemType Directory -Force $Out | Out-Null
 $o = (Resolve-Path $Out).Path
 function Sheet($name) { $f = Join-Path $Src ($name + '.png'); if (Test-Path -LiteralPath $f) { return (Resolve-Path -LiteralPath $f).Path }; "skip (not in src/img): $name" | Write-Host; return $null }
@@ -127,3 +130,15 @@ foreach ($k in $weapons.Keys) { $f = Sheet $weapons[$k]; if (-not $f) { continue
 $framed = [ordered]@{ gatling = @('Gatling Cannon Mk I Sprite Sheet', 4); pulse = @('Pulse_rifle', 3); scatter = @('Scattergun', 4); ion = @('Ion Cannon', 1); plasma = @('Plasma Cannon', 1); hammer = @('Dual Sci‑Fi Thunder Hammers', 1) }
 foreach ($k in $framed.Keys) { $f = Sheet $framed[$k][0]; if (-not $f) { continue }; $rows = $framed[$k][1]
   for ($r = 0; $r -lt $rows; $r++) { $name = if ($rows -gt 1) { "$k$r" } else { $k }; $d = [Prep]::Part($f, $r, $rows, $Scale * 0.55, (Join-Path $o "wpn_$name.png")); "wpn_$name $d" } }
+# pile bunker: row 1 = spike retracted, row 2 = spike fired. The retracted art is drawn bigger on the sheet, so it is
+# scaled down until its body is as thick as the fired one, then padded (anchored at the grip) to the fired frame's size,
+# so both frames share one scale and grip point in game.
+$pb = Sheet 'Armored Mecha Pile-Bunker Sprite Sheet'
+if ($pb) {
+  $d1 = [Prep]::Part($pb, 1, 2, $Scale * 0.55, (Join-Path $o 'wpn_pile1.png')); "wpn_pile1 $d1"
+  $probe = [Prep]::Part($pb, 0, 2, 1, (Join-Path $env:TEMP 'pile0_probe.png')); Remove-Item (Join-Path $env:TEMP 'pile0_probe.png') -ErrorAction SilentlyContinue
+  if ($d1 -match 'gray (\d+)x(\d+)') { $w1 = [int]$matches[1]; $h1 = [int]$matches[2]
+    if ($probe -match 'gray (\d+)x(\d+)') { $k = $h1 / [double]$matches[2]
+      $d0 = [Prep]::Part($pb, 0, 2, $Scale * 0.55 * $k, (Join-Path $o 'wpn_pile0.png'), $false, [int][Math]::Round($w1 / $k), [int]$matches[2]); "wpn_pile0 $d0 (x$([Math]::Round($k,3)))" } }
+}
+
